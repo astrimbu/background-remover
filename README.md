@@ -2,6 +2,8 @@
 
 A tool that processes images by removing backgrounds, compressing them, and combining them into spritesheets. Available both as a command-line tool and a web interface.
 
+![preview](./preview.png)
+
 ## Features
 
 - 🎨 Automatic background removal
