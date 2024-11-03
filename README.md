@@ -17,8 +17,9 @@ A tool that processes images by removing backgrounds, compressing them, and comb
 
 1. Clone this repository
 2. Install the required dependencies:
-
+```
     pip install numpy opencv-python rembg streamlit pillow tqdm
+```
 
 ## Usage
 
@@ -26,7 +27,9 @@ A tool that processes images by removing backgrounds, compressing them, and comb
 
 Run the web interface with:
 
+```
     streamlit run app.py
+```
 
 Then:
 1. Open your browser to the displayed URL
@@ -38,7 +41,9 @@ Then:
 
 Process images from the command line:
 
+```
     python compress.py input_directory output_directory [-r RATIO] [-a]
+```
 
 Arguments:
 - `input_directory`: Folder containing your source images
