@@ -2,6 +2,8 @@
 
 A tool that processes images by removing backgrounds, compressing them, and combining them into spritesheets. Available both as a command-line tool and a web interface.
 
+🔗 **[Try it live!](https://spritesheet-tool.streamlit.app/)**
+
 ![preview](./preview.png)
 
 ## Features
@@ -13,22 +15,42 @@ A tool that processes images by removing backgrounds, compressing them, and comb
 - 🌐 Web interface with live preview
 - 💾 Processing history tracking
 
-## Installation
+## Quick Start
 
-1. Clone this repository
-2. Install the required dependencies:
+### Web Version
+Visit **[spritesheet-tool.streamlit.app](https://spritesheet-tool.streamlit.app/)** to use the tool directly in your browser.
+
+### Local Installation
+
+1. Clone this repository:
+```bash
+git clone https://github.com/yourusername/repository-name.git
+cd repository-name
 ```
-    pip install numpy opencv-python-headless rembg streamlit pillow tqdm
+
+2. Create a virtual environment and activate it:
+```bash
+python -m venv venv
+
+# On Windows:
+venv\Scripts\activate
+# On Mac/Linux:
+source venv/bin/activate
+```
+
+3. Install the required dependencies:
+```bash
+pip install numpy opencv-python-headless rembg streamlit pillow tqdm
 ```
 
 ## Usage
 
 ### Web Interface
 
-Run the web interface with:
+Run the web interface locally with:
 
-```
-    streamlit run app.py
+```bash
+streamlit run app.py
 ```
 
 Then:
@@ -41,8 +63,8 @@ Then:
 
 Process images from the command line:
 
-```
-    python compress.py input_directory output_directory [-r RATIO] [-a]
+```bash
+python compress.py input_directory output_directory [-r RATIO] [-a]
 ```
 
 Arguments:
@@ -55,18 +77,18 @@ Arguments:
 
 Key settings you can adjust:
 - Compression ratio (2-16)
+  - Lower values preserve more detail
+  - Higher values create smaller files
 - Transparency handling
-- Alpha threshold (50 by default)
-- Visibility ratio (0.5 by default)
+  - Alpha threshold: 50 (default)
+  - Visibility ratio: 0.5 (default)
 
 ## Supported Formats
 
-Input formats:
-- PNG
-- JPG/JPEG
-
-Output format:
-- PNG (with transparency support)
+| Format | Input | Output |
+|--------|-------|--------|
+| PNG    | ✅    | ✅     |
+| JPG    | ✅    | -      |
 
 ## How It Works
 
@@ -77,36 +99,38 @@ Output format:
 ## Requirements
 
 - Python 3.6+
-- See `requirements.txt` for full dependency list
-
-## License
-
-MIT License
-
-Copyright (c) 2024 astrimbu
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+- Dependencies:
+  - numpy
+  - opencv-python-headless
+  - rembg
+  - streamlit
+  - pillow
+  - tqdm
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Here's how you can help:
+
+1. Fork the repository
+2. Create a new branch (`git checkout -b feature/improvement`)
+3. Make your changes
+4. Commit (`git commit -am 'Add new feature'`)
+5. Push (`git push origin feature/improvement`)
+6. Create a Pull Request
+
+## Troubleshooting
+
+Common issues and solutions:
+- If you get memory errors with large images, try increasing the compression ratio
+- For best results, ensure input images have consistent dimensions
 
 ## Acknowledgments
 
-Special thanks to [Tobias Fischer](https://github.com/tobias17) for the original [python script](https://github.com/tobias17/sd-pixel-anims/blob/master/compress.py) that this project builds upon.
+Special thanks to:
+- [Tobias Fischer](https://github.com/tobias17) for the original [python script](https://github.com/tobias17/sd-pixel-anims/blob/master/compress.py)
+- The [rembg](https://github.com/danielgatis/rembg) project for background removal
+- [Streamlit](https://streamlit.io/) for the web interface framework
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details
