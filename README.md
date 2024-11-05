@@ -24,8 +24,8 @@ Visit **[spritesheet-tool.streamlit.app](https://spritesheet-tool.streamlit.app/
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/yourusername/repository-name.git
-cd repository-name
+git clone https://github.com/astrimbu/spritesheet-tool.git
+cd spritesheet-tool
 ```
 
 2. Create a virtual environment and activate it:
@@ -127,7 +127,7 @@ Common issues and solutions:
 ## Acknowledgments
 
 Special thanks to:
-- [Tobias Fischer](https://github.com/tobias17) for the original [python script](https://github.com/tobias17/sd-pixel-anims/blob/master/compress.py)
+- [Tobias Fischer](https://github.com/tobias17) for his [python script](https://github.com/tobias17/sd-pixel-anims/blob/master/compress.py)
 - The [rembg](https://github.com/danielgatis/rembg) project for background removal
 - [Streamlit](https://streamlit.io/) for the web interface framework
 
