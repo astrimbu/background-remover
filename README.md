@@ -18,7 +18,7 @@ A tool that processes images by removing backgrounds, compressing them, and comb
 1. Clone this repository
 2. Install the required dependencies:
 ```
-    pip install opencv-python-headless numpy rembg streamlit pillow tqdm
+    pip install numpy opencv-python-headless rembg streamlit pillow tqdm
 ```
 
 ## Usage
