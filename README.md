@@ -18,7 +18,7 @@ A tool that processes images by removing backgrounds, compressing them, and comb
 1. Clone this repository
 2. Install the required dependencies:
 ```
-    pip install numpy opencv-python rembg streamlit pillow tqdm
+    pip install opencv-python-headless numpy rembg streamlit pillow tqdm
 ```
 
 ## Usage
@@ -109,4 +109,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Acknowledgments
 
-Special thanks to [Tobias Fischer](https://github.com/tobias17) for the original [python script](https://github.com/tobias17/sd-pixel-anims/blob/master/compress.py) that this project builds upon. Thank you for sharing your work!
+Special thanks to [Tobias Fischer](https://github.com/tobias17) for the original [python script](https://github.com/tobias17/sd-pixel-anims/blob/master/compress.py) that this project builds upon.
