@@ -1,6 +1,4 @@
-numpy
-opencv-python-headless
+flask
 rembg
-streamlit
+opencv-python-headless
 pillow
-tqdm

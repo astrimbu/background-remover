@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Background Remover</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="main-content">
+            <div class="upload-section">
+                <div class="dropzone" id="dropzone">
+                    Drop image here or click to upload
+                    <input type="file" id="fileInput" accept="image/*" style="display: none">
+                </div>
+                
+                <div id="loading">Processing...</div>
+            </div>
+
+            <div class="settings-panel">
+                <div class="settings-header">
+                    <h3>Settings</h3>
+                </div>
+                
+                <div class="setting-group">
+                    <label for="model">
+                        Model
+                        <span class="help-icon" title="Neural network architecture used for segmentation. Different models balance speed vs accuracy.">?</span>
+                    </label>
+                    <select id="model">
+                        {% for model_id, model_name in models.items() %}
+                        <option value="{{ model_id }}">{{ model_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="alpha_matting" checked>
+                        Enable Alpha Matting
+                        <span class="help-icon" title="Uses Bayesian matting to estimate partial transparency around edges. More accurate but slower.">?</span>
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label for="foreground_threshold">
+                        Foreground Threshold
+                        <span class="help-icon" title="Confidence threshold for foreground classification (0-100). Lower values preserve more detail but may include noise.">?</span>
+                    </label>
+                    <input type="range" id="foreground_threshold" min="0" max="100" value="50">
+                    <span class="value">50</span>
+                </div>
+
+                <div class="setting-group">
+                    <label for="background_threshold">
+                        Background Threshold
+                        <span class="help-icon" title="Confidence threshold for background classification (0-100). Higher values remove more background but may affect edges.">?</span>
+                    </label>
+                    <input type="range" id="background_threshold" min="0" max="100" value="50">
+                    <span class="value">50</span>
+                </div>
+
+                <div class="setting-group">
+                    <label for="erode_size">
+                        Erode Size
+                        <span class="help-icon" title="Pixel radius for morphological erosion. Affects how aggressively edges are refined during alpha matting.">?</span>
+                    </label>
+                    <input type="range" id="erode_size" min="1" max="30" value="5">
+                    <span class="value">5</span>
+                </div>
+
+                <div class="setting-group">
+                    <label for="kernel_size">
+                        Kernel Size
+                        <span class="help-icon" title="Size of convolution kernel for edge processing. Larger values smooth edges but may lose detail. Must be odd number.">?</span>
+                    </label>
+                    <input type="range" id="kernel_size" min="1" max="7" step="2" value="3">
+                    <span class="value">3</span>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="post_process">
+                        Post Process Mask
+                        <span class="help-icon" title="Applies additional refinement to the binary mask. Can help with noise but may affect fine details.">?</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="preview">
+            <div id="originalPreview" class="preview-box">
+                <h3>Original</h3>
+            </div>
+            <div id="result" class="preview-box transparent-bg">
+                <h3>Result</h3>
+                <button id="toggleBackground" class="bg-toggle">Background</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const loading = document.getElementById('loading');
+        let currentFile = null;
+        let debounceTimer;
+
+        // Update all range input displays
+        document.querySelectorAll('input[type="range"]').forEach(input => {
+            input.addEventListener('input', function() {
+                this.nextElementSibling.textContent = this.value;
+            });
+        });
+
+        // Handle model switching
+        document.getElementById('model').addEventListener('change', async function() {
+            loading.style.display = 'block';
+            try {
+                const response = await fetch('/switch-model', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ model: this.value })
+                });
+                if (!response.ok) throw new Error('Failed to switch model');
+                if (currentFile) handleFile(currentFile);
+            } catch (error) {
+                console.error('Error switching model:', error);
+                alert('Error switching model');
+            }
+            loading.style.display = 'none';
+        });
+
+        // Debounced settings change handler
+        function handleSettingChange() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                if (currentFile) {
+                    handleFile(currentFile);
+                }
+            }, 500);
+        }
+
+        // Add change listeners to all settings
+        document.querySelectorAll('.setting-group input').forEach(input => {
+            input.addEventListener('change', handleSettingChange);
+        });
+        
+        dropzone.onclick = () => fileInput.click();
+        dropzone.ondragover = (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        };
+        dropzone.ondragleave = () => dropzone.classList.remove('dragover');
+        dropzone.ondrop = (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        };
+        fileInput.onchange = (e) => handleFile(e.target.files[0]);
+        
+        function handleFile(file) {
+            currentFile = file;
+            
+            // Show original preview
+            const originalPreview = document.getElementById('originalPreview');
+            originalPreview.innerHTML = '<h3>Original</h3>';
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(file);
+            originalPreview.appendChild(img);
+            
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            // Add all settings to formData
+            formData.append('alpha_matting', document.getElementById('alpha_matting').checked);
+            formData.append('foreground_threshold', document.getElementById('foreground_threshold').value);
+            formData.append('background_threshold', document.getElementById('background_threshold').value);
+            formData.append('erode_size', document.getElementById('erode_size').value);
+            formData.append('kernel_size', document.getElementById('kernel_size').value);
+            formData.append('post_process', document.getElementById('post_process').checked);
+            
+            loading.style.display = 'block';
+            
+            if (window.currentRequest) {
+                window.currentRequest.abort();
+            }
+            
+            window.currentRequest = new AbortController();
+            
+            fetch('/remove-background', {
+                method: 'POST',
+                body: formData,
+                signal: window.currentRequest.signal
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.blob();
+            })
+            .then(blob => {
+                loading.style.display = 'none';
+                
+                const result = document.getElementById('result');
+                // Preserve the button and background state
+                const currentBg = result.className.match(/(transparent-bg|light-bg|dark-bg)/)?.[0] || 'transparent-bg';
+                result.innerHTML = '<h3>Result</h3>';
+                
+                // Re-add the toggle button
+                const toggleBtn = document.createElement('button');
+                toggleBtn.id = 'toggleBackground';
+                toggleBtn.className = 'bg-toggle';
+                toggleBtn.textContent = 'Background: ' + currentBg.split('-')[0].charAt(0).toUpperCase() + currentBg.split('-')[0].slice(1);
+                result.appendChild(toggleBtn);
+                
+                // Add the result image
+                const resultImg = document.createElement('img');
+                resultImg.src = URL.createObjectURL(blob);
+                result.appendChild(resultImg);
+                
+                // Add download button
+                const downloadBtn = document.createElement('button');
+                downloadBtn.textContent = 'Download';
+                downloadBtn.style.marginTop = '10px';
+                downloadBtn.onclick = () => {
+                    const a = document.createElement('a');
+                    a.href = resultImg.src;
+                    a.download = 'no_background.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                };
+                result.appendChild(document.createElement('br'));
+                result.appendChild(downloadBtn);
+                
+                // Preserve the background class
+                result.classList.add(currentBg);
+                
+                // Reattach the event listener
+                document.getElementById('toggleBackground').addEventListener('click', function() {
+                    bgState = (bgState + 1) % 3;
+                    result.classList.remove('transparent-bg', 'light-bg', 'dark-bg');
+                    
+                    switch(bgState) {
+                        case 0:
+                            result.classList.add('transparent-bg');
+                            this.textContent = 'Background: Transparent';
+                            break;
+                        case 1:
+                            result.classList.add('light-bg');
+                            this.textContent = 'Background: Light';
+                            break;
+                        case 2:
+                            result.classList.add('dark-bg');
+                            this.textContent = 'Background: Dark';
+                            break;
+                    }
+                });
+            })
+            .catch(error => {
+                if (error.name === 'AbortError') return;
+                loading.style.display = 'none';
+                console.error('Error:', error);
+                alert('Error processing image');
+            });
+        }
+
+        // Update the toggle background functionality
+        const toggleButton = document.getElementById('toggleBackground');
+        const resultBox = document.getElementById('result');
+        let bgState = 0; // 0: transparent, 1: light, 2: dark
+
+        toggleButton.addEventListener('click', function() {
+            bgState = (bgState + 1) % 3;
+            resultBox.classList.remove('transparent-bg', 'light-bg', 'dark-bg');
+            
+            switch(bgState) {
+                case 0:
+                    resultBox.classList.add('transparent-bg');
+                    toggleButton.textContent = 'Background: Transparent';
+                    break;
+                case 1:
+                    resultBox.classList.add('light-bg');
+                    toggleButton.textContent = 'Background: Light';
+                    break;
+                case 2:
+                    resultBox.classList.add('dark-bg');
+                    toggleButton.textContent = 'Background: Dark';
+                    break;
+            }
+        });
+    </script>
+</body>
+</html>

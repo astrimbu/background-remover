@@ -1,143 +1,61 @@
-import streamlit as st
-import os
-from PIL import Image
-import tempfile
-import numpy as np
-from compress import compress_image, remove_background, create_spritesheet
-from datetime import datetime
-import time
+from flask import Flask, request, send_file, render_template
+from rembg import remove, new_session
+import io
 
-st.set_page_config(page_title="Image Processor", layout="centered")
+app = Flask(__name__)
 
-def main():
-    st.title("Image Processor")
+AVAILABLE_MODELS = {
+    "u2net": "General Purpose (Balanced)",
+    "u2net_human_seg": "Human/Portrait (Fast)",
+    "isnet-general-use": "General Purpose (Fast)",
+    "silueta": "General Purpose (Fastest)",
+}
+
+# Initialize with default model
+session = new_session("u2net")
+
+@app.route('/')
+def index():
+    return render_template('index.html', models=AVAILABLE_MODELS)
+
+@app.route('/switch-model', methods=['POST'])
+def switch_model():
+    try:
+        model_name = request.json.get('model')
+        global session
+        session = new_session(model_name)
+        return {'status': 'success'}
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}, 500
+
+@app.route('/remove-background', methods=['POST'])
+def process_image():
+    if 'image' not in request.files:
+        return 'No image uploaded', 400
     
-    # Initialize session state for history if it doesn't exist
-    if 'processing_history' not in st.session_state:
-        st.session_state.processing_history = []
-
-    # Sidebar controls
-    with st.sidebar:
-        st.header("Settings")
-        compression_ratio = st.slider("Compression Ratio", min_value=2, max_value=16, value=8)
-        allow_transparent = st.checkbox("Allow Transparent Pixels", value=False)
+    try:
+        file = request.files['image']
+        settings = {
+            'alpha_matting': request.form.get('alpha_matting') == 'true',
+            'alpha_matting_foreground_threshold': int(request.form.get('foreground_threshold', 50)),
+            'alpha_matting_background_threshold': int(request.form.get('background_threshold', 50)),
+            'alpha_matting_erode_size': int(request.form.get('erode_size', 5)),
+            'alpha_matting_kernel_size': int(request.form.get('kernel_size', 3)),
+            'post_process_mask': request.form.get('post_process') == 'true',
+        }
         
-        # History section in sidebar
-        if st.session_state.processing_history:
-            st.header("Previous Spritesheets")
-            for idx, entry in enumerate(reversed(st.session_state.processing_history)):
-                with st.expander(f"Spritesheet {entry['timestamp'].strftime('%H:%M:%S')}"):
-                    st.image(entry['data'], use_column_width=True)
-                    st.download_button(
-                        f"Download",
-                        entry['data'],
-                        file_name=entry['filename'],
-                        mime="image/png"
-                    )
-    
-    # File uploader section
-    # Use a dynamic key based on a counter in session state
-    if 'uploader_key' not in st.session_state:
-        st.session_state.uploader_key = 0
-
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        uploaded_files = st.file_uploader(
-            "Choose images to process", 
-            accept_multiple_files=True,
-            type=['png', 'jpg', 'jpeg'],
-            key=f"file_uploader_{st.session_state.uploader_key}"
+        input_data = file.read()
+        output_data = remove(input_data, session=session, **settings)
+        
+        return send_file(
+            io.BytesIO(output_data),
+            mimetype='image/png',
+            as_attachment=True,
+            download_name='no_background.png'
         )
-    with col2:
-        if uploaded_files:
-            if st.button("Clear All", use_container_width=True):
-                st.session_state.uploader_key += 1  # Get a new uploader
-                st.rerun()
+    except Exception as e:
+        print(f"Error processing image: {str(e)}")
+        return f'Error processing image: {str(e)}', 500
 
-    # When files are uploaded
-    if uploaded_files:
-        # Process form
-        with st.form("process_form"):
-            # Get extension from first uploaded file
-            _, file_extension = os.path.splitext(uploaded_files[0].name)
-            
-            # Calculate compressed size
-            first_img = Image.open(uploaded_files[0])
-            compressed_width = first_img.size[0] // compression_ratio
-            compressed_height = first_img.size[1] // compression_ratio
-            
-            # Name input and size preview in two columns
-            name_col, size_col = st.columns([2, 1])
-            with name_col:
-                base_name = st.text_input(
-                    "Spritesheet Name",
-                    "",
-                    placeholder="Enter a name for the spritesheet"
-                )
-                # Use default if empty
-                if not base_name.strip():
-                    base_name = "spritesheet"
-            with size_col:
-                st.text("Output Size")
-                st.text(f"{compressed_width}x{compressed_height}px")
-            
-            output_name = f"{base_name}{file_extension}"
-            process_button = st.form_submit_button("Process Images")
-        
-        # Process and show results
-        if process_button:
-            with st.spinner("Processing images..."):
-                processed_images = []
-                progress_bar = st.progress(0)
-                
-                for idx, file in enumerate(uploaded_files):
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
-                        tmp_file.write(file.getvalue())
-                        
-                    img_no_bg = remove_background(tmp_file.name)
-                    img_compressed = compress_image(
-                        img_no_bg, 
-                        ratio=compression_ratio,
-                        allow_transparent=allow_transparent
-                    )
-                    processed_images.append(img_compressed)
-                    progress_bar.progress((idx + 1) / len(uploaded_files))
-                
-                if len(processed_images) > 1:
-                    spritesheet_path = "temp_spritesheet.png"
-                    create_spritesheet(processed_images, spritesheet_path)
-                    
-                    # Read the spritesheet into memory
-                    with open(spritesheet_path, "rb") as file:
-                        spritesheet_data = file.read()
-                    
-                    # Save to history
-                    st.session_state.processing_history.append({
-                        'filename': output_name,
-                        'data': spritesheet_data,
-                        'timestamp': datetime.now()
-                    })
-                    
-                    # Show result
-                    st.header("Generated Spritesheet")
-                    st.image(spritesheet_path, caption=output_name)
-                    
-                    # Download button
-                    st.download_button(
-                        label="Download Spritesheet",
-                        data=spritesheet_data,
-                        file_name=output_name,
-                        mime="image/png"
-                    )
-
-        # Preview section
-        st.subheader("Selected Images Preview")
-        preview_cols = st.columns(4)
-        for idx, file in enumerate(uploaded_files):
-            with preview_cols[idx % 4]:
-                img = Image.open(file)
-                st.image(file, use_column_width=True)
-                st.caption(f"{file.name}\n{img.size[0]}x{img.size[1]}px")
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    app.run(debug=True)
