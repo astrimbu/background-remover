@@ -42,7 +42,7 @@ body {
     max-width: 800px;
     margin: 0 auto;
     background: var(--bg-secondary);
-    padding: 20px;
+    padding: 15px;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     text-align: center;
@@ -52,8 +52,8 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--border-color);
     gap: 20px;
 }
@@ -72,16 +72,24 @@ body {
 }
 
 .setting-group {
-    margin: 12px auto;
-    padding: 8px 0;
+    margin: 8px auto;
+    padding: 4px 0;
     max-width: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
 }
 
 .setting-group label {
-    display: block;
-    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    min-width: 180px;
+    text-align: right;
+    margin: 0;
     font-weight: 500;
     color: var(--text-primary);
+    font-size: 0.95em;
 }
 
 .setting-group .description {
@@ -94,28 +102,40 @@ body {
 }
 
 .setting-group input[type="range"] {
-    width: 100%;
-    max-width: 400px;
-    margin: 8px auto;
+    flex: 1;
+    max-width: 250px;
+    margin: 0;
     background: var(--bg-primary);
 }
 
 .setting-group .value {
-    display: inline-block;
-    min-width: 30px;
-    text-align: center;
+    min-width: 25px;
+    text-align: left;
     color: var(--text-secondary);
-    margin-left: 8px;
+    font-size: 0.9em;
 }
 
 .setting-group select {
-    margin: 8px auto;
-    display: block;
-    background: var(--bg-primary);
+    flex: 1;
+    max-width: 250px;
+    margin: 0;
+    appearance: none;
+    padding: 8px 12px;
     color: var(--text-primary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
-    padding: 5px 10px;
     border-radius: 4px;
+    background-position: right 8px center;
+}
+
+.setting-group select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.setting-group select option {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
 }
 
 .dropzone {
@@ -212,29 +232,17 @@ input[type="range"]::-moz-range-thumb {
     border: none;
 }
 
-select {
-    appearance: none;
-    padding: 8px 12px;
-    width: 200px;
-    background: var(--bg-primary) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23b0b0b0'%3E%3Cpath d='M4 6h8L8 12z'/%3E%3C/svg%3E") no-repeat right 8px center;
-}
-
-select:focus {
-    outline: none;
-    border-color: var(--accent-color);
-}
-
 .help-icon {
     display: inline-block;
-    width: 16px;
-    height: 16px;
-    line-height: 16px;
+    width: 14px;
+    height: 14px;
+    line-height: 14px;
     text-align: center;
     border-radius: 50%;
     background: var(--accent-color);
     color: white;
-    font-size: 12px;
-    margin-left: 5px;
+    font-size: 10px;
+    margin-left: 4px;
     cursor: help;
 }
 
@@ -272,4 +280,14 @@ select:focus {
 
 .dark-bg {
     background: var(--bg-primary);
+}
+
+/* Special handling for checkbox containers */
+.setting-group.checkbox-group {
+    justify-content: center;
+}
+
+.setting-group.checkbox-group label {
+    min-width: auto;
+    text-align: center;
 } 
