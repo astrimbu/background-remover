@@ -141,47 +141,47 @@ body {
 
 .dropzone {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 80%;
-    max-width: 600px;
-    height: 200px;
+    top: 0;
+    left: 0;
+    width: calc(100% - 4px);
+    height: calc(100vh - 4px);
     border: 2px dashed var(--border-color);
     text-align: center;
-    padding: 20px;
-    border-radius: 8px;
-    background: var(--bg-secondary);
+    background: rgba(45, 45, 45, 0.8);
     transition: all 0.2s ease;
     z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .dropzone.dragover {
-    background: var(--bg-hover);
+    background: rgba(61, 61, 61, 0.9);
     border-color: var(--text-secondary);
 }
 
 .dropzone .upload-message {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     color: var(--text-primary);
-    font-size: 1.2em;
+    font-size: 1.5em;
+    padding: 20px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 #loading {
     display: none;
-    position: absolute;
+    position: fixed;
     left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    top: 20px;
+    transform: translateX(-50%);
     text-align: center;
     color: var(--text-secondary);
     background: var(--bg-secondary);
     padding: 10px 20px;
     border-radius: 4px;
-    z-index: 100;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .preview {

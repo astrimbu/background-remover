@@ -11,12 +11,19 @@ AVAILABLE_MODELS = {
     "silueta": "General Purpose (Fastest)",
 }
 
+DEFAULT_SETTINGS = {
+    'foreground_threshold': 100,
+    'background_threshold': 100,
+    'erode_size': 1,
+    'kernel_size': 1
+}
+
 # Initialize with default model
 session = new_session("u2net")
 
 @app.route('/')
 def index():
-    return render_template('index.html', models=AVAILABLE_MODELS)
+    return render_template('index.html', models=AVAILABLE_MODELS, defaults=DEFAULT_SETTINGS)
 
 @app.route('/switch-model', methods=['POST'])
 def switch_model():
@@ -37,10 +44,10 @@ def process_image():
         file = request.files['image']
         settings = {
             'alpha_matting': request.form.get('alpha_matting') == 'true',
-            'alpha_matting_foreground_threshold': int(request.form.get('foreground_threshold', 50)),
-            'alpha_matting_background_threshold': int(request.form.get('background_threshold', 50)),
-            'alpha_matting_erode_size': int(request.form.get('erode_size', 5)),
-            'alpha_matting_kernel_size': int(request.form.get('kernel_size', 3)),
+            'alpha_matting_foreground_threshold': int(request.form.get('foreground_threshold', DEFAULT_SETTINGS['foreground_threshold'])),
+            'alpha_matting_background_threshold': int(request.form.get('background_threshold', DEFAULT_SETTINGS['background_threshold'])),
+            'alpha_matting_erode_size': int(request.form.get('erode_size', DEFAULT_SETTINGS['erode_size'])),
+            'alpha_matting_kernel_size': int(request.form.get('kernel_size', DEFAULT_SETTINGS['kernel_size'])),
             'post_process_mask': request.form.get('post_process') == 'true',
         }
         

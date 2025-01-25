@@ -46,8 +46,8 @@
                         Foreground Threshold
                         <span class="help-icon" title="Confidence threshold for foreground classification (0-100). Lower values preserve more detail but may include noise.">?</span>
                     </label>
-                    <input type="range" id="foreground_threshold" min="0" max="100" value="50">
-                    <span class="value">50</span>
+                    <input type="range" id="foreground_threshold" min="0" max="100" value="{{ defaults.foreground_threshold }}">
+                    <span class="value">{{ defaults.foreground_threshold }}</span>
                 </div>
 
                 <div class="setting-group">
@@ -55,8 +55,8 @@
                         Background Threshold
                         <span class="help-icon" title="Confidence threshold for background classification (0-100). Higher values remove more background but may affect edges.">?</span>
                     </label>
-                    <input type="range" id="background_threshold" min="0" max="100" value="50">
-                    <span class="value">50</span>
+                    <input type="range" id="background_threshold" min="0" max="100" value="{{ defaults.background_threshold }}">
+                    <span class="value">{{ defaults.background_threshold }}</span>
                 </div>
 
                 <div class="setting-group">
@@ -64,8 +64,8 @@
                         Erode Size
                         <span class="help-icon" title="Pixel radius for morphological erosion. Affects how aggressively edges are refined during alpha matting.">?</span>
                     </label>
-                    <input type="range" id="erode_size" min="1" max="30" value="5">
-                    <span class="value">5</span>
+                    <input type="range" id="erode_size" min="1" max="30" value="{{ defaults.erode_size }}">
+                    <span class="value">{{ defaults.erode_size }}</span>
                 </div>
 
                 <div class="setting-group">
@@ -73,8 +73,8 @@
                         Kernel Size
                         <span class="help-icon" title="Size of convolution kernel for edge processing. Larger values smooth edges but may lose detail. Must be odd number.">?</span>
                     </label>
-                    <input type="range" id="kernel_size" min="1" max="7" step="2" value="3">
-                    <span class="value">3</span>
+                    <input type="range" id="kernel_size" min="1" max="7" step="2" value="{{ defaults.kernel_size }}">
+                    <span class="value">{{ defaults.kernel_size }}</span>
                 </div>
 
                 <div class="setting-group checkbox-group">
