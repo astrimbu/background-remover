@@ -8,8 +8,8 @@
     <div class="container">
         <div class="main-content">
             <div class="upload-section">
-                <div class="dropzone" id="dropzone">
-                    Drop image here or click to upload
+                <div class="dropzone hidden" id="dropzone">
+                    <div class="upload-message">Drop image here</div>
                     <input type="file" id="fileInput" accept="image/*" style="display: none">
                 </div>
                 
@@ -147,15 +147,31 @@
             input.addEventListener('change', handleSettingChange);
         });
         
-        dropzone.onclick = () => fileInput.click();
+        document.body.ondragover = (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('hidden');
+        };
+
+        document.body.ondragleave = (e) => {
+            e.preventDefault();
+            if (!e.relatedTarget || !dropzone.contains(e.relatedTarget)) {
+                dropzone.classList.add('hidden');
+            }
+        };
+
         dropzone.ondragover = (e) => {
             e.preventDefault();
             dropzone.classList.add('dragover');
         };
-        dropzone.ondragleave = () => dropzone.classList.remove('dragover');
+
+        dropzone.ondragleave = () => {
+            dropzone.classList.remove('dragover');
+        };
+
         dropzone.ondrop = (e) => {
             e.preventDefault();
             dropzone.classList.remove('dragover');
+            dropzone.classList.add('hidden');
             handleFile(e.dataTransfer.files[0]);
         };
         fileInput.onchange = (e) => handleFile(e.target.files[0]);

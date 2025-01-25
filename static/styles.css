@@ -140,7 +140,11 @@ body {
 }
 
 .dropzone {
-    width: 100%;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
     max-width: 600px;
     height: 200px;
     border: 2px dashed var(--border-color);
@@ -149,11 +153,21 @@ body {
     border-radius: 8px;
     background: var(--bg-secondary);
     transition: all 0.2s ease;
+    z-index: 1000;
 }
 
 .dropzone.dragover {
     background: var(--bg-hover);
     border-color: var(--text-secondary);
+}
+
+.dropzone .upload-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--text-primary);
+    font-size: 1.2em;
 }
 
 #loading {
