@@ -13,7 +13,8 @@ body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 16px;
 }
 
 .container {
@@ -90,11 +91,11 @@ body {
     margin: 0;
     font-weight: 500;
     color: var(--text-primary);
-    font-size: 0.95em;
+    font-size: 1.1em;
 }
 
 .setting-group .description {
-    font-size: 0.85em;
+    font-size: 1em;
     color: var(--text-secondary);
     margin: 4px auto;
     line-height: 1.4;
@@ -113,12 +114,12 @@ body {
     min-width: 25px;
     text-align: left;
     color: var(--text-secondary);
-    font-size: 0.9em;
+    font-size: 1.1em;
 }
 
 .setting-group select {
     flex: 1;
-    max-width: 250px;
+    max-width: 350px;
     margin: 0;
     appearance: none;
     padding: 8px 12px;
@@ -127,6 +128,8 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 4px;
     background-position: right 8px center;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 1.1em;
 }
 
 .setting-group select:focus {
@@ -137,6 +140,8 @@ body {
 .setting-group select option {
     background-color: var(--bg-primary);
     color: var(--text-primary);
+    font-family: "Courier New", Courier, monospace;
+    font-size: 1.1em;
 }
 
 .dropzone {
@@ -162,7 +167,7 @@ body {
 
 .dropzone .upload-message {
     color: var(--text-primary);
-    font-size: 1.5em;
+    font-size: 1.7em;
     padding: 20px;
     background: var(--bg-secondary);
     border-radius: 8px;
@@ -204,7 +209,6 @@ body {
     max-width: 100%;
     max-height: 500px;
     object-fit: contain;
-    border-radius: 4px;
 }
 
 button {
@@ -215,6 +219,8 @@ button {
     border-radius: 4px;
     padding: 8px 16px;
     transition: background-color 0.2s ease;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 1.1em;
 }
 
 button:hover {
@@ -278,30 +284,10 @@ input[type="range"]::-moz-range-thumb {
 
 .bg-toggle {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    right: 0px;
     padding: 4px 8px;
-    font-size: 0.9em;
+    font-size: 1.1em;
     z-index: 1;
-}
-
-/* Transparent background pattern */
-.transparent-bg {
-    background-image: linear-gradient(45deg, #808080 25%, transparent 25%),
-        linear-gradient(-45deg, #808080 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #808080 75%),
-        linear-gradient(-45deg, transparent 75%, #808080 75%);
-    background-size: 20px 20px;
-    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-    background-color: #666;
-}
-
-.light-bg {
-    background: white;
-}
-
-.dark-bg {
-    background: var(--bg-primary);
 }
 
 /* Special handling for checkbox containers */
@@ -312,4 +298,27 @@ input[type="range"]::-moz-range-thumb {
 .setting-group.checkbox-group label {
     min-width: auto;
     text-align: center;
+}
+
+.image-wrapper {
+    position: relative;
+    display: inline-block; /* Contains the image dimensions */
+}
+
+.image-wrapper.transparent-bg {
+    background-image: linear-gradient(45deg, #808080 25%, transparent 25%),
+        linear-gradient(-45deg, #808080 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #808080 75%),
+        linear-gradient(-45deg, transparent 75%, #808080 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    background-color: #666;
+}
+
+.image-wrapper.light-bg {
+    background: white;
+}
+
+.image-wrapper.dark-bg {
+    background: var(--bg-primary);
 } 

@@ -91,14 +91,15 @@
             <div id="originalPreview" class="preview-box">
                 <h3>Original</h3>
             </div>
-            <div id="result" class="preview-box transparent-bg">
+            <div id="result" class="preview-box">
                 <h3>Result</h3>
-                <button id="toggleBackground" class="bg-toggle">Background</button>
+                <div class="image-wrapper transparent-bg"></div>
             </div>
         </div>
     </div>
 
     <script>
+        let dragCounter = 0;
         const dropzone = document.getElementById('dropzone');
         const fileInput = document.getElementById('fileInput');
         const loading = document.getElementById('loading');
@@ -147,35 +148,48 @@
             input.addEventListener('change', handleSettingChange);
         });
         
-        document.body.ondragover = (e) => {
+        document.addEventListener('dragenter', (e) => {
             e.preventDefault();
-            dropzone.classList.remove('hidden');
-        };
+            dragCounter++;
+            if (dragCounter === 1) {
+                dropzone.classList.remove('hidden');
+            }
+        });
 
-        document.body.ondragleave = (e) => {
+        document.addEventListener('dragleave', (e) => {
             e.preventDefault();
-            if (!e.relatedTarget || !dropzone.contains(e.relatedTarget)) {
+            dragCounter--;
+            if (dragCounter === 0) {
                 dropzone.classList.add('hidden');
             }
-        };
+        });
 
-        dropzone.ondragover = (e) => {
+        document.addEventListener('dragover', (e) => {
             e.preventDefault();
-            dropzone.classList.add('dragover');
-        };
+        });
 
-        dropzone.ondragleave = () => {
-            dropzone.classList.remove('dragover');
-        };
-
-        dropzone.ondrop = (e) => {
+        document.addEventListener('drop', (e) => {
             e.preventDefault();
+            dragCounter = 0;
             dropzone.classList.remove('dragover');
             dropzone.classList.add('hidden');
-            handleFile(e.dataTransfer.files[0]);
-        };
-        fileInput.onchange = (e) => handleFile(e.target.files[0]);
-        
+            
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        // Dropzone specific events
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+        });
+
         function handleFile(file) {
             currentFile = file;
             
@@ -218,8 +232,7 @@
                 loading.style.display = 'none';
                 
                 const result = document.getElementById('result');
-                // Preserve the button and background state
-                const currentBg = result.className.match(/(transparent-bg|light-bg|dark-bg)/)?.[0] || 'transparent-bg';
+                const currentBg = result.querySelector('.image-wrapper').className.match(/(transparent-bg|light-bg|dark-bg)/)?.[0] || 'transparent-bg';
                 result.innerHTML = '<h3>Result</h3>';
                 
                 // Re-add the toggle button
@@ -230,9 +243,12 @@
                 result.appendChild(toggleBtn);
                 
                 // Add the result image
+                const imageWrapper = document.createElement('div');
+                imageWrapper.className = 'image-wrapper ' + currentBg;
                 const resultImg = document.createElement('img');
                 resultImg.src = URL.createObjectURL(blob);
-                result.appendChild(resultImg);
+                imageWrapper.appendChild(resultImg);
+                result.appendChild(imageWrapper);
                 
                 // Add download button
                 const downloadBtn = document.createElement('button');
@@ -249,25 +265,23 @@
                 result.appendChild(document.createElement('br'));
                 result.appendChild(downloadBtn);
                 
-                // Preserve the background class
-                result.classList.add(currentBg);
-                
                 // Reattach the event listener
                 document.getElementById('toggleBackground').addEventListener('click', function() {
                     bgState = (bgState + 1) % 3;
-                    result.classList.remove('transparent-bg', 'light-bg', 'dark-bg');
+                    const imageWrapper = result.querySelector('.image-wrapper');
+                    imageWrapper.classList.remove('transparent-bg', 'light-bg', 'dark-bg');
                     
                     switch(bgState) {
                         case 0:
-                            result.classList.add('transparent-bg');
+                            imageWrapper.classList.add('transparent-bg');
                             this.textContent = 'Background: Transparent';
                             break;
                         case 1:
-                            result.classList.add('light-bg');
+                            imageWrapper.classList.add('light-bg');
                             this.textContent = 'Background: Light';
                             break;
                         case 2:
-                            result.classList.add('dark-bg');
+                            imageWrapper.classList.add('dark-bg');
                             this.textContent = 'Background: Dark';
                             break;
                     }
@@ -288,19 +302,20 @@
 
         toggleButton.addEventListener('click', function() {
             bgState = (bgState + 1) % 3;
-            resultBox.classList.remove('transparent-bg', 'light-bg', 'dark-bg');
+            const imageWrapper = resultBox.querySelector('.image-wrapper');
+            imageWrapper.classList.remove('transparent-bg', 'light-bg', 'dark-bg');
             
             switch(bgState) {
                 case 0:
-                    resultBox.classList.add('transparent-bg');
+                    imageWrapper.classList.add('transparent-bg');
                     toggleButton.textContent = 'Background: Transparent';
                     break;
                 case 1:
-                    resultBox.classList.add('light-bg');
+                    imageWrapper.classList.add('light-bg');
                     toggleButton.textContent = 'Background: Light';
                     break;
                 case 2:
-                    resultBox.classList.add('dark-bg');
+                    imageWrapper.classList.add('dark-bg');
                     toggleButton.textContent = 'Background: Dark';
                     break;
             }
