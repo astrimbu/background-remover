@@ -2,6 +2,8 @@
 
 A simple web tool that removes backgrounds from images.
 
+![Preview](./preview.png)
+
 ## Features
 - 🎨 Automatic background removal
 - 🌐 Drag-and-drop interface
@@ -15,15 +17,9 @@ cd background-remover
 python -m venv venv
 ```
 
-On Windows:
-```bash
-venv\Scripts\activate
-```
+On Windows: `venv\Scripts\activate`
 
-On Mac/Linux:
-```bash
-source venv/bin/activate
-```
+On Mac/Linux: `source venv/bin/activate`
 
 ```bash
 pip install -r requirements.txt
