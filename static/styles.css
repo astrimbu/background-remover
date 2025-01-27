@@ -209,6 +209,7 @@ body {
     max-width: 100%;
     max-height: 500px;
     object-fit: contain;
+    display: block;
 }
 
 button {
@@ -285,9 +286,18 @@ input[type="range"]::-moz-range-thumb {
 .bg-toggle {
     position: absolute;
     right: 0px;
-    padding: 4px 8px;
-    font-size: 1.1em;
+    padding: 2px 4px;
+    font-size: 1.5em;
     z-index: 1;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.bg-toggle:hover {
+    opacity: 1;
 }
 
 /* Special handling for checkbox containers */
@@ -321,4 +331,101 @@ input[type="range"]::-moz-range-thumb {
 
 .image-wrapper.dark-bg {
     background: var(--bg-primary);
+}
+
+.resize-panel {
+    margin-top: 20px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.resize-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.resize-controls select {
+    width: 200px;
+    padding: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: inherit;
+}
+
+.custom-size-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+}
+
+.custom-size-controls input {
+    width: 70px;
+    padding: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: inherit;
+}
+
+.resize-button {
+    padding: 8px 16px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.resize-button:hover {
+    background: var(--accent-hover);
+}
+
+.border-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    justify-content: center;
+}
+
+.border-slider {
+    width: 150px;
+    height: 8px;
+    -webkit-appearance: none;
+    background: var(--bg-primary);
+    border-radius: 4px;
+    outline: none;
+}
+
+.border-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.border-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+.border-value {
+    min-width: 40px;
+    text-align: left;
+    color: var(--text-secondary);
 } 
