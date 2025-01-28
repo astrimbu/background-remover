@@ -13,6 +13,13 @@ class App {
         this.settings.setSettingsChangeCallback(() => {
             this.processCurrentImage();
         });
+
+        // Check for pending image from the generator
+        const pendingImageUrl = sessionStorage.getItem('pendingImageUrl');
+        if (pendingImageUrl) {
+            sessionStorage.removeItem('pendingImageUrl');
+            this.handlePendingImageUrl(pendingImageUrl);
+        }
     }
 
     async handleFile(file) {
@@ -56,6 +63,22 @@ class App {
         } catch (error) {
             console.error('Error resizing image:', error);
             alert('Error resizing image');
+        }
+    }
+
+    async handlePendingImageUrl(imageUrl) {
+        try {
+            // Fetch the image from ComfyUI
+            const response = await fetch(imageUrl);
+            if (!response.ok) throw new Error('Failed to fetch image from ComfyUI');
+            
+            const blob = await response.blob();
+            const file = new File([blob], 'generated.png', { type: 'image/png' });
+            
+            // Process the file as if it was dropped
+            this.handleFile(file);
+        } catch (error) {
+            console.error('Error handling pending image:', error);
         }
     }
 }

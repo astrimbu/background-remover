@@ -1,8 +1,14 @@
-from flask import Flask, request, send_file, render_template
+from flask import Flask, request, send_file, render_template, jsonify
 from rembg import remove, new_session  # neural networks
 from PIL import Image
 import io
 import numpy as np
+import json
+import requests
+import base64
+from pathlib import Path
+import time
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
@@ -19,6 +25,11 @@ DEFAULT_SETTINGS = {
     'erode_size': 1,
     'kernel_size': 1
 }
+
+# ComfyUI API settings
+COMFYUI_API = "http://127.0.0.1:8188"
+WORKFLOW_FILE = "workflow_api.json"
+BASE_IMAGES_DIR = "base-img"
 
 def fit_to_canvas(image, border_percent=10):
     """Fits image to a square canvas with specified border percentage."""
@@ -64,6 +75,75 @@ def fit_to_canvas(image, border_percent=10):
 
 # Initialize with default model
 session = new_session("u2net")
+
+def load_workflow():
+    try:
+        with open('workflow_api.json', 'r') as f:
+            workflow = json.load(f)
+            print(f"Loaded workflow from workflow_api.json")
+            print(f"Workflow contains {len(workflow)} nodes")
+            return workflow
+    except Exception as e:
+        print(f"Error loading workflow: {str(e)}")
+        raise
+
+def get_base_images():
+    """Get list of base images from the base-img directory"""
+    base_dir = Path(BASE_IMAGES_DIR)
+    if not base_dir.exists():
+        base_dir.mkdir(exist_ok=True)
+    return [f.name for f in base_dir.glob("base-*.png")]
+
+def modify_workflow(workflow, style_image_path=None, base_image=None, prompt=None, negative_prompt=None, steps=20, batch_size=1):
+    """Modify the workflow with the given parameters"""
+    print("Starting workflow modification...")
+    workflow_copy = json.loads(json.dumps(workflow))
+    
+    # Add random seed generation
+    if '3' in workflow_copy:
+        random_seed = np.random.randint(np.iinfo(np.int32).max)
+        print(f"Setting random seed: {random_seed}")
+        workflow_copy['3']['inputs']['seed'] = int(random_seed)
+    
+    # Update empty latent image batch size (node 5)
+    if '5' in workflow_copy:
+        print(f"Setting batch size: {batch_size}")
+        workflow_copy['5']['inputs']['batch_size'] = int(batch_size)
+        print(f"Updated empty latent node: {workflow_copy['5']}")
+    
+    # Update style image path (node 12)
+    if style_image_path and '12' in workflow_copy:
+        print(f"Setting style image path: {style_image_path}")
+        workflow_copy['12']['inputs']['image'] = style_image_path
+        workflow_copy['12']['inputs']['upload'] = 'file'
+        print(f"Updated style image node: {workflow_copy['12']}")
+    
+    # Update base image path (node 47)
+    if base_image and '47' in workflow_copy:
+        print(f"Setting base image: {base_image}")
+        workflow_copy['47']['inputs']['image'] = base_image
+        print(f"Updated base image node: {workflow_copy['47']}")
+    
+    # Update positive prompt (node 6)
+    if prompt and '6' in workflow_copy:
+        print(f"Setting prompt: {prompt}")
+        workflow_copy['6']['inputs']['text'] = prompt
+        print(f"Updated positive prompt node: {workflow_copy['6']}")
+    
+    # Update negative prompt (node 7)
+    if negative_prompt and '7' in workflow_copy:
+        print(f"Setting negative prompt: {negative_prompt}")
+        workflow_copy['7']['inputs']['text'] = negative_prompt
+        print(f"Updated negative prompt node: {workflow_copy['7']}")
+    
+    # Update steps (node 3)
+    if steps and '3' in workflow_copy:
+        print(f"Setting steps: {steps}")
+        workflow_copy['3']['inputs']['steps'] = int(steps)
+        print(f"Updated KSampler node: {workflow_copy['3']}")
+    
+    print("Workflow modification complete")
+    return workflow_copy
 
 @app.route('/')
 def index():
@@ -166,6 +246,156 @@ def resize_image():
     except Exception as e:
         print(f"Error resizing image: {str(e)}")
         return f'Error resizing image: {str(e)}', 500
+
+@app.route('/base-images')
+def list_base_images():
+    """Return list of base images"""
+    images = get_base_images()
+    return jsonify({
+        'images': [{'name': img, 'url': f'/base-img/{img}'} for img in images]
+    })
+
+@app.route('/base-img/<path:filename>')
+def serve_base_image(filename):
+    """Serve base images"""
+    return send_file(Path(BASE_IMAGES_DIR) / filename)
+
+@app.route('/generate')
+def generate():
+    workflow = load_workflow()
+    # Get default prompt from workflow node 6 (CLIPTextEncode)
+    default_prompt = (
+        workflow.get('6', {})
+        .get('inputs', {})
+        .get('text', "ring, game asset icon, plain background")
+    )
+    return render_template('comfy.html', default_prompt=default_prompt)
+
+@app.route('/comfyui-process', methods=['POST'])
+def process_comfyui():
+    try:
+        print("1. Getting request parameters...")
+        # Get parameters from request
+        style_image = request.files.get('style_image')
+        base_image = request.form.get('base_image')
+        prompt = request.form.get('prompt', '')
+        negative_prompt = request.form.get('negative_prompt', '')
+        steps = int(request.form.get('steps', 20))
+        batch_size = int(request.form.get('batch_size', 1))
+        
+        print(f"Parameters: base_image={base_image}, prompt={prompt}, steps={steps}, batch_size={batch_size}")
+        
+        # Save style image if provided
+        style_image_path = None
+        if style_image:
+            # Create a safe filename from the original
+            safe_filename = secure_filename(style_image.filename)
+            # Create absolute path
+            style_image_path = str(Path.cwd() / 'temp' / safe_filename)
+            Path('temp').mkdir(exist_ok=True)
+            style_image.save(style_image_path)
+            print(f"Saved style image to {style_image_path}")
+        
+        print("2. Loading workflow...")
+        workflow = load_workflow()
+        
+        print("3. Modifying workflow...")
+        modified_workflow = modify_workflow(
+            workflow,
+            style_image_path=style_image_path,
+            base_image=base_image,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            steps=steps,
+            batch_size=batch_size
+        )
+        
+        print("4. Sending to ComfyUI API...")
+        response = requests.post(f"{COMFYUI_API}/prompt", json={
+            "prompt": modified_workflow,
+            "client_id": "background-remover"
+        })
+        
+        if not response.ok:
+            print("ComfyUI Error Response:", response.text)
+            return jsonify({'error': 'Failed to queue workflow'}), 500
+            
+        prompt_id = response.json()['prompt_id']
+        print(f"5. Got prompt ID: {prompt_id}")
+        
+        # Poll for completion with exponential backoff
+        max_wait_time = 300  # 5 minutes timeout
+        initial_delay = 10   # Start with 10 second delay
+        max_delay = 10       # Cap delay at 10 seconds
+        current_delay = initial_delay
+        start_time = time.time()
+        
+        while (time.time() - start_time) < max_wait_time:
+            history_response = requests.get(f"{COMFYUI_API}/history")
+            if not history_response.ok:
+                print(f"Error getting history: {history_response.text}")
+                time.sleep(current_delay)
+                current_delay = min(current_delay * 1.5, max_delay)
+                continue
+                
+            history = history_response.json()
+            
+            if prompt_id not in history:
+                print(f"Prompt {prompt_id} not found in history yet")
+                time.sleep(current_delay)
+                current_delay = min(current_delay * 1.5, max_delay)
+                continue
+                
+            prompt_status = history[prompt_id]
+            
+            if 'error' in prompt_status:
+                raise Exception(f"ComfyUI Error: {prompt_status['error']}")
+                
+            if 'status' not in prompt_status:
+                time.sleep(current_delay)
+                current_delay = min(current_delay * 1.5, max_delay)
+                continue
+                
+            if prompt_status['status'].get('completed', False):
+                print(f"Prompt completed in {time.time() - start_time:.2f} seconds")
+                break
+                
+            # If execution_start exists, we can show progress
+            if 'status' in prompt_status and 'executing' in prompt_status['status']:
+                execution_node = prompt_status['status']['executing']['node']
+                print(f"Executing node: {execution_node}")
+            
+            time.sleep(current_delay)
+            current_delay = min(current_delay * 1.5, max_delay)
+        
+        if (time.time() - start_time) >= max_wait_time:
+            raise Exception("Timeout waiting for ComfyUI to process the workflow")
+        
+        # Get the output images
+        output_images = []
+        if 'outputs' in history[prompt_id]:
+            for node_id, node_output in history[prompt_id]['outputs'].items():
+                if 'images' in node_output:
+                    for image in node_output['images']:
+                        # Skip temporary preview images
+                        filename = image['filename']
+                        if not (filename.startswith('PB-_temp_') or 
+                               filename.startswith('ComfyUI_temp_')):
+                            image_url = f"{COMFYUI_API}/view?filename={filename}&subfolder={image.get('subfolder', '')}"
+                            output_images.append(image_url)
+        
+        if not output_images:
+            raise Exception("No images were generated")
+        
+        # Clean up temporary files
+        if style_image_path:
+            Path(style_image_path).unlink(missing_ok=True)
+        
+        return jsonify({'images': output_images})
+        
+    except Exception as e:
+        print(f"Error in ComfyUI processing: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

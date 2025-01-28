@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Generator - Background Remover</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="main-content">
+            <div class="nav-tabs">
+                <a href="/" class="tab">Background Remover</a>
+                <a href="/generate" class="tab active">Image Generator</a>
+            </div>
+
+            <div class="settings-panel">
+                <div class="settings-header">
+                    <h3>Image Generation Settings</h3>
+                </div>
+
+                <div class="setting-group">
+                    <label for="base_image">
+                        Base Image
+                        <span class="help-icon" title="Select a base image to use for edge detection">?</span>
+                    </label>
+                    <div class="base-image-grid"></div>
+                </div>
+
+                <div class="setting-group">
+                    <label for="style_image">
+                        Style Image
+                        <span class="help-icon" title="Reference image that defines the style to apply">?</span>
+                    </label>
+                    <input type="file" id="style_image" accept="image/*">
+                </div>
+
+                <div class="setting-group">
+                    <label for="prompt">
+                        Prompt
+                        <span class="help-icon" title="Text description of the image you want to generate">?</span>
+                    </label>
+                    <textarea id="prompt" rows="3">{{ default_prompt }}</textarea>
+                </div>
+
+                <div class="setting-group">
+                    <label for="negative_prompt">
+                        Negative Prompt
+                        <span class="help-icon" title="What you don't want in the generated image">?</span>
+                    </label>
+                    <textarea id="negative_prompt" rows="1">shadow</textarea>
+                </div>
+
+                <div class="setting-group">
+                    <label for="batch_size">
+                        Batch Size
+                        <span class="help-icon" title="Number of images to generate at once (1-4)">?</span>
+                    </label>
+                    <input type="range" id="batch_size" min="1" max="4" value="1">
+                    <span class="value">1</span>
+                </div>
+
+                <div class="setting-group">
+                    <label for="steps">
+                        Steps
+                        <span class="help-icon" title="Number of denoising steps (4-12). More steps = better quality but slower">?</span>
+                    </label>
+                    <input type="range" id="steps" min="4" max="12" value="4">
+                    <span class="value">4</span>
+                </div>
+
+                <button id="generate" class="action-button">Generate</button>
+            </div>
+
+            <div class="preview">
+                <div id="generatedImages" class="preview-box">
+                    <h3>Generated Images</h3>
+                    <div class="image-grid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="{{ url_for('static', filename='js/comfy.js') }}"></script>
+</body>
+</html> 

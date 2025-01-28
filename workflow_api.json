@@ -1,0 +1,250 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 1125370379712955,
+      "steps": 8,
+      "cfg": 4,
+      "sampler_name": "dpmpp_sde",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "32",
+        0
+      ],
+      "positive": [
+        "43",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "4": {
+    "inputs": {
+      "ckpt_name": "RealitiesEdgeXLLIGHTNING_TURBOV7.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "5": {
+    "inputs": {
+      "width": 800,
+      "height": 800,
+      "batch_size": 4
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": "ring,\ngame asset icon,\n(plain background:1.2),",
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "shadow",
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "12": {
+    "inputs": {
+      "image": "style-default.png",
+      "upload": "image"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "32": {
+    "inputs": {
+      "weight_style": 0.5,
+      "weight_composition": 0,
+      "expand_style": false,
+      "combine_embeds": "average",
+      "start_at": 0,
+      "end_at": 1,
+      "embeds_scaling": "V only",
+      "model": [
+        "4",
+        0
+      ],
+      "ipadapter": [
+        "33",
+        0
+      ],
+      "image_style": [
+        "12",
+        0
+      ],
+      "image_composition": [
+        "12",
+        0
+      ],
+      "clip_vision": [
+        "34",
+        0
+      ]
+    },
+    "class_type": "IPAdapterStyleComposition",
+    "_meta": {
+      "title": "IPAdapter Style & Composition SDXL"
+    }
+  },
+  "33": {
+    "inputs": {
+      "ipadapter_file": "ip-adapter_sdxl.safetensors"
+    },
+    "class_type": "IPAdapterModelLoader",
+    "_meta": {
+      "title": "IPAdapter Model Loader"
+    }
+  },
+  "34": {
+    "inputs": {
+      "clip_name": "CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors"
+    },
+    "class_type": "CLIPVisionLoader",
+    "_meta": {
+      "title": "Load CLIP Vision"
+    }
+  },
+  "41": {
+    "inputs": {
+      "image": "$41-0",
+      "images": [
+        "48",
+        0
+      ]
+    },
+    "class_type": "PreviewBridge",
+    "_meta": {
+      "title": "Preview Bridge (Image)"
+    }
+  },
+  "43": {
+    "inputs": {
+      "strength": 0.8,
+      "conditioning": [
+        "6",
+        0
+      ],
+      "control_net": [
+        "44",
+        0
+      ],
+      "image": [
+        "41",
+        0
+      ]
+    },
+    "class_type": "ControlNetApply",
+    "_meta": {
+      "title": "Apply ControlNet"
+    }
+  },
+  "44": {
+    "inputs": {
+      "control_net_name": "sdxl-controlnet-canny-xinsir.safetensors"
+    },
+    "class_type": "ControlNetLoader",
+    "_meta": {
+      "title": "Load ControlNet Model"
+    }
+  },
+  "45": {
+    "inputs": {
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "46": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "47": {
+    "inputs": {
+      "image": "no_background (16).png",
+      "upload": "image"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "48": {
+    "inputs": {
+      "low_threshold": 100,
+      "high_threshold": 200,
+      "resolution": 512,
+      "image": [
+        "47",
+        0
+      ]
+    },
+    "class_type": "CannyEdgePreprocessor",
+    "_meta": {
+      "title": "Canny Edge"
+    }
+  }
+}
