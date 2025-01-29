@@ -4,6 +4,7 @@ class ComfyUI {
         this.selectedBaseImage = null;
         this.loadBaseImages();
         this.initializeEventListeners();
+        this.loadSavedStyleImage();
         this.showDefaultStylePreview();
     }
 
@@ -70,6 +71,32 @@ class ComfyUI {
         document.getElementById('generatedImages').before(stylePreview);
     }
 
+    loadSavedStyleImage() {
+        const savedStyle = localStorage.getItem('savedStyleImage');
+        if (savedStyle) {
+            try {
+                const { dataUrl, filename } = JSON.parse(savedStyle);
+                // Create a file from the data URL
+                fetch(dataUrl)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        this.styleImage = new File([blob], filename, { type: 'image/png' });
+                        // Update the preview
+                        const stylePreview = document.getElementById('stylePreview');
+                        const img = stylePreview.querySelector('img') || document.createElement('img');
+                        img.src = dataUrl;
+                        img.alt = 'Style Reference';
+                        if (!stylePreview.contains(img)) {
+                            stylePreview.appendChild(img);
+                        }
+                    });
+            } catch (error) {
+                console.error('Error loading saved style image:', error);
+                localStorage.removeItem('savedStyleImage');
+            }
+        }
+    }
+
     initializeEventListeners() {
         // Update style image preview when file selected
         document.getElementById('style_image').addEventListener('change', (e) => {
@@ -83,6 +110,16 @@ class ComfyUI {
                 if (!stylePreview.contains(img)) {
                     stylePreview.appendChild(img);
                 }
+                
+                // Save to localStorage
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    localStorage.setItem('savedStyleImage', JSON.stringify({
+                        dataUrl: reader.result,
+                        filename: file.name
+                    }));
+                };
+                reader.readAsDataURL(file);
             }
         });
 
@@ -95,6 +132,13 @@ class ComfyUI {
 
         // Handle generate button
         document.getElementById('generate').addEventListener('click', () => this.generateImages());
+
+        // Special handling for weight_style slider to show decimal value
+        const weightStyleInput = document.getElementById('weight_style');
+        weightStyleInput.addEventListener('input', () => {
+            const value = parseInt(weightStyleInput.value) / 100;
+            weightStyleInput.nextElementSibling.textContent = value.toFixed(1);
+        });
     }
 
     async generateImages() {
@@ -115,6 +159,8 @@ class ComfyUI {
         formData.append('negative_prompt', document.getElementById('negative_prompt').value);
         formData.append('batch_size', document.getElementById('batch_size').value);
         formData.append('steps', document.getElementById('steps').value);
+        const weightStyle = parseInt(document.getElementById('weight_style').value) / 100;
+        formData.append('weight_style', weightStyle);
 
         try {
             document.getElementById('generate').disabled = true;

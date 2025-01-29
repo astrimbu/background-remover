@@ -22,7 +22,7 @@ AVAILABLE_MODELS = {
 DEFAULT_SETTINGS = {
     'foreground_threshold': 100,
     'background_threshold': 100,
-    'erode_size': 1,
+    'erode_size': 3,
     'kernel_size': 1
 }
 
@@ -94,7 +94,7 @@ def get_base_images():
         base_dir.mkdir(exist_ok=True)
     return [f.name for f in base_dir.glob("base-*.png")]
 
-def modify_workflow(workflow, style_image_path=None, base_image=None, prompt=None, negative_prompt=None, steps=20, batch_size=1):
+def modify_workflow(workflow, style_image_path=None, base_image=None, prompt=None, negative_prompt=None, steps=20, batch_size=1, weight_style=0.5):
     """Modify the workflow with the given parameters"""
     print("Starting workflow modification...")
     workflow_copy = json.loads(json.dumps(workflow))
@@ -141,6 +141,12 @@ def modify_workflow(workflow, style_image_path=None, base_image=None, prompt=Non
         print(f"Setting steps: {steps}")
         workflow_copy['3']['inputs']['steps'] = int(steps)
         print(f"Updated KSampler node: {workflow_copy['3']}")
+    
+    # Update weight_style (node 32)
+    if '32' in workflow_copy:
+        print(f"Setting weight_style: {weight_style}")
+        workflow_copy['32']['inputs']['weight_style'] = float(weight_style)
+        print(f"Updated IPAdapter node: {workflow_copy['32']}")
     
     print("Workflow modification complete")
     return workflow_copy
@@ -282,8 +288,9 @@ def process_comfyui():
         negative_prompt = request.form.get('negative_prompt', '')
         steps = int(request.form.get('steps', 20))
         batch_size = int(request.form.get('batch_size', 1))
+        weight_style = float(request.form.get('weight_style', 0.5))
         
-        print(f"Parameters: base_image={base_image}, prompt={prompt}, steps={steps}, batch_size={batch_size}")
+        print(f"Parameters: base_image={base_image}, prompt={prompt}, steps={steps}, batch_size={batch_size}, weight_style={weight_style}")
         
         # Save style image if provided
         style_image_path = None
@@ -307,7 +314,8 @@ def process_comfyui():
             prompt=prompt,
             negative_prompt=negative_prompt,
             steps=steps,
-            batch_size=batch_size
+            batch_size=batch_size,
+            weight_style=weight_style
         )
         
         print("4. Sending to ComfyUI API...")
