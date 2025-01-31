@@ -405,5 +405,33 @@ def process_comfyui():
         print(f"Error in ComfyUI processing: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/save-temp-image', methods=['POST'])
+def save_temp_image():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
+        
+    try:
+        file = request.files['image']
+        # Create temp directory if it doesn't exist
+        Path('temp').mkdir(exist_ok=True)
+        
+        # Generate unique filename
+        filename = f"temp_{int(time.time())}_{secure_filename(file.filename)}"
+        filepath = Path('temp') / filename
+        
+        # Save the file
+        file.save(filepath)
+        
+        # Return temporary URL
+        return jsonify({
+            'tempUrl': f'/temp/{filename}'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/temp/<path:filename>')
+def serve_temp_file(filename):
+    return send_file(Path('temp') / filename)
+
 if __name__ == '__main__':
     app.run(debug=True)

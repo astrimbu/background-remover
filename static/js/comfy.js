@@ -200,30 +200,28 @@ class ComfyUI {
         });
     }
 
-    async saveImage(imageUrl) {
-        try {
-            const response = await fetch(imageUrl);
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'generated.png';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Error saving image:', error);
-        }
-    }
-
     async handleImageClick(imageUrl) {
         try {
-            // Store the ComfyUI image URL directly in sessionStorage
-            sessionStorage.setItem('pendingImageUrl', imageUrl);
-            console.log(imageUrl);
+            // Fetch the image from ComfyUI
+            const response = await fetch(imageUrl);
+            if (!response.ok) throw new Error('Failed to fetch image');
+            const blob = await response.blob();
             
-            await this.saveImage(imageUrl);
+            // Create a new FormData and append the blob as a File
+            const formData = new FormData();
+            formData.append('image', blob, 'generated.png');
+            
+            // Send to our server to store temporarily
+            const saveResponse = await fetch('/save-temp-image', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!saveResponse.ok) throw new Error('Failed to save image');
+            const { tempUrl } = await saveResponse.json();
+            
+            // Store the temporary URL
+            sessionStorage.setItem('pendingImageUrl', tempUrl);
             
             // Navigate to the background remover page
             window.location.href = '/';
