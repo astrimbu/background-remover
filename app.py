@@ -1,5 +1,6 @@
 from flask import Flask, request, send_file, render_template, jsonify
-from rembg import remove, new_session  # neural networks
+from flask_cors import CORS
+from rembg import remove, new_session
 from PIL import Image
 import io
 import numpy as np
@@ -11,6 +12,7 @@ import time
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 AVAILABLE_MODELS = {
     "u2net": "General Purpose (Balanced)",
@@ -165,34 +167,55 @@ def switch_model():
     except Exception as e:
         return {'status': 'error', 'message': str(e)}, 500
 
-@app.route('/remove-background', methods=['POST'])
-def process_image():
+@app.route('/api/models', methods=['GET'])
+def get_models():
+    return jsonify(AVAILABLE_MODELS)
+
+@app.route('/api/remove-background', methods=['POST'])
+def remove_background():
     if 'image' not in request.files:
-        return 'No image uploaded', 400
+        return jsonify({'error': 'No image file provided'}), 400
     
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
     try:
-        file = request.files['image']
-        settings = {
-            'alpha_matting': request.form.get('alpha_matting') == 'true',
-            'alpha_matting_foreground_threshold': int(request.form.get('foreground_threshold', DEFAULT_SETTINGS['foreground_threshold'])),
-            'alpha_matting_background_threshold': int(request.form.get('background_threshold', DEFAULT_SETTINGS['background_threshold'])),
-            'alpha_matting_erode_size': int(request.form.get('erode_size', DEFAULT_SETTINGS['erode_size'])),
-            'alpha_matting_kernel_size': int(request.form.get('kernel_size', DEFAULT_SETTINGS['kernel_size'])),
-            'post_process_mask': request.form.get('post_process') == 'true',
-        }
+        # Get processing options
+        options = json.loads(request.form.get('options', '{}'))
+        model_name = options.get('model', 'u2net')
         
-        input_data = file.read()
-        output_data = remove(input_data, session=session, **settings)
+        # Read the image
+        input_image = Image.open(file.stream)
+        
+        # Process the image
+        session = new_session(model_name)
+        output_image = remove(
+            input_image,
+            session=session,
+            alpha_matting=True,
+            alpha_matting_foreground_threshold=options.get('foregroundThreshold', 100),
+            alpha_matting_background_threshold=options.get('backgroundThreshold', 100),
+            alpha_matting_erode_size=options.get('erodeSize', 3),
+            alpha_matting_kernel_size=options.get('kernelSize', 1),
+            post_process_mask=True
+        )
+        
+        # Convert to bytes
+        img_byte_arr = io.BytesIO()
+        output_image.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
         
         return send_file(
-            io.BytesIO(output_data),
+            img_byte_arr,
             mimetype='image/png',
             as_attachment=True,
-            download_name='no_background.png'
+            download_name='processed.png'
         )
+        
     except Exception as e:
         print(f"Error processing image: {str(e)}")
-        return f'Error processing image: {str(e)}', 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/fit-to-canvas', methods=['POST'])
 def fit_image_to_canvas():
