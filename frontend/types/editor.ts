@@ -3,12 +3,16 @@ export interface ImageEditorProps {
   onProcessed?: (result: Blob) => void;
 }
 
+export interface HistoryEntry {
+  imageUrl: string;
+  settings: ProcessingOptions;
+  timestamp: number;
+}
+
 export interface ProcessingOptions {
   model: keyof typeof AVAILABLE_MODELS;
-  foregroundThreshold: number;
-  backgroundThreshold: number;
+  foregroundThreshold: number;  // Used for edge softness
   erodeSize: number;
-  kernelSize: number;
 }
 
 // Available background removal models
@@ -25,11 +29,12 @@ export type ModelType = keyof typeof AVAILABLE_MODELS;
 export interface EditorState {
   currentImage: File | null;
   processedImage: string | null;
-  history: string[];
+  history: HistoryEntry[];
   settings: ProcessingOptions;
   actions: {
     setCurrentImage: (file: File) => void;
     updateSettings: (settings: Partial<ProcessingOptions>) => void;
     addToHistory: (imageUrl: string) => void;
+    restoreFromHistory: (entry: HistoryEntry) => void;
   };
 } 

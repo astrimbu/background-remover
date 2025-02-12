@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { AVAILABLE_MODELS } from '@/types/editor';
 import { imageApi } from '@/lib/api';
@@ -19,10 +19,17 @@ import {
   Snackbar,
   Alert,
   Divider,
-  ButtonGroup
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
-import ImageIcon from '@mui/icons-material/Image';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+
+// Default values for edge refinement settings
+const defaultEdgeSettings = {
+  foregroundThreshold: 50,
+  erodeSize: 3
+};
 
 export function ProcessingControls() {
   const settings = useEditorStore(state => state.settings);
@@ -32,6 +39,8 @@ export function ProcessingControls() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [localSettings, setLocalSettings] = useState(settings);
+  const [shouldProcess, setShouldProcess] = useState(false);
 
   const handleModelChange = useCallback((event: SelectChangeEvent) => {
     const model = event.target.value as keyof typeof AVAILABLE_MODELS;
@@ -39,54 +48,83 @@ export function ProcessingControls() {
   }, [updateSettings]);
 
   const handleSliderChange = useCallback((name: keyof typeof settings) => (_: Event, value: number | number[]) => {
+    // Just update the local UI state
+    setLocalSettings(prev => ({
+      ...prev,
+      [name]: value as number
+    }));
+  }, []);
+
+  const handleSliderChangeCommitted = useCallback((name: keyof typeof settings) => (_: Event | React.SyntheticEvent<Element, Event>, value: number | number[]) => {
+    console.log(`Slider ${name} committed to:`, value);
+    // Update the store which will trigger processing
     updateSettings({ [name]: value as number });
   }, [updateSettings]);
 
-  const handleProcess = useCallback(async () => {
-    if (!currentImage) return;
+  // Keep local settings in sync with store settings
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
 
-    setIsProcessing(true);
-    setError(null);
+  // Process image whenever settings change or image changes
+  useEffect(() => {
+    const processImage = async () => {
+      if (!currentImage) return;
 
-    try {
-      const response = await imageApi.removeBackground(currentImage, settings);
-      const blob = new Blob([response], { type: 'image/png' });
-      const imageUrl = URL.createObjectURL(blob);
-      addToHistory(imageUrl);
-    } catch (error) {
-      console.error('Error processing image:', error);
-      setError(error instanceof Error ? error.message : 'Failed to process image');
-    } finally {
-      setIsProcessing(false);
+      setIsProcessing(true);
+      setError(null);
+
+      try {
+        console.log('Processing with settings:', settings);
+        const response = await imageApi.removeBackground(currentImage, settings);
+        const blob = new Blob([response], { type: 'image/png' });
+        const imageUrl = URL.createObjectURL(blob);
+        addToHistory(imageUrl);
+      } catch (error) {
+        console.error('Error processing image:', error);
+        setError(error instanceof Error ? error.message : 'Failed to process image');
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
+    // Only process if we have an image and either:
+    // 1. This is the first load (shouldProcess is false)
+    // 2. Settings were explicitly changed (not just component mount)
+    if (currentImage && !shouldProcess) {
+      setShouldProcess(true);
+      processImage();
+    } else if (shouldProcess) {
+      processImage();
     }
-  }, [currentImage, settings, addToHistory]);
+  }, [currentImage, settings, addToHistory, shouldProcess]);
 
   const handleSave = useCallback(async () => {
     if (!processedImage) return;
 
     try {
-      // Fetch the image data from the blob URL
       const response = await fetch(processedImage);
       const blob = await response.blob();
-      
-      // Create a download link
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = 'processed-image.png';
-      
-      // Trigger the download
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      // Clean up
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error('Error saving image:', error);
       setError('Failed to save image');
     }
   }, [processedImage]);
+
+  const handleResetEdgeSettings = useCallback(() => {
+    updateSettings({
+      foregroundThreshold: defaultEdgeSettings.foregroundThreshold,
+      erodeSize: defaultEdgeSettings.erodeSize
+    });
+  }, [updateSettings]);
 
   return (
     <Stack spacing={3}>
@@ -99,6 +137,7 @@ export function ProcessingControls() {
           label="Model"
           onChange={handleModelChange}
           size="small"
+          disabled={isProcessing}
           sx={{ color: 'text.primary' }}
         >
           {Object.entries(AVAILABLE_MODELS).map(([key, label]) => (
@@ -111,38 +150,37 @@ export function ProcessingControls() {
 
       <Divider />
 
-      {/* Alpha Matting Settings */}
+      {/* Edge Refinement */}
       <div>
-        <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 'medium', mb: 2 }}>
-          Alpha Matting Settings
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 'medium' }}>
+            Edge Refinement
+          </Typography>
+          <Tooltip title="Reset to defaults">
+            <IconButton 
+              onClick={handleResetEdgeSettings}
+              size="small"
+              disabled={isProcessing}
+            >
+              <RestartAltIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
         
         <Stack spacing={3}>
           <Box>
             <Typography variant="body2" gutterBottom color="text.primary" fontWeight="medium">
-              Foreground Threshold
+              Edge Softness
             </Typography>
             <Slider
-              value={settings.foregroundThreshold}
+              value={localSettings.foregroundThreshold}
               onChange={handleSliderChange('foregroundThreshold')}
+              onChangeCommitted={handleSliderChangeCommitted('foregroundThreshold')}
               min={0}
-              max={255}
+              max={100}
               valueLabelDisplay="auto"
               size="small"
-            />
-          </Box>
-
-          <Box>
-            <Typography variant="body2" gutterBottom color="text.primary" fontWeight="medium">
-              Background Threshold
-            </Typography>
-            <Slider
-              value={settings.backgroundThreshold}
-              onChange={handleSliderChange('backgroundThreshold')}
-              min={0}
-              max={255}
-              valueLabelDisplay="auto"
-              size="small"
+              disabled={isProcessing}
             />
           </Box>
 
@@ -151,30 +189,16 @@ export function ProcessingControls() {
               Erode Size
             </Typography>
             <Slider
-              value={settings.erodeSize}
+              value={localSettings.erodeSize}
               onChange={handleSliderChange('erodeSize')}
+              onChangeCommitted={handleSliderChangeCommitted('erodeSize')}
               min={0}
               max={10}
               step={1}
               marks
               valueLabelDisplay="auto"
               size="small"
-            />
-          </Box>
-
-          <Box>
-            <Typography variant="body2" gutterBottom color="text.primary" fontWeight="medium">
-              Kernel Size
-            </Typography>
-            <Slider
-              value={settings.kernelSize}
-              onChange={handleSliderChange('kernelSize')}
-              min={1}
-              max={7}
-              step={2}
-              marks
-              valueLabelDisplay="auto"
-              size="small"
+              disabled={isProcessing}
             />
           </Box>
         </Stack>
@@ -182,25 +206,16 @@ export function ProcessingControls() {
 
       <Divider />
 
-      {/* Action Buttons */}
-      <ButtonGroup variant="contained" fullWidth>
-        <Button
-          onClick={handleProcess}
-          disabled={!currentImage || isProcessing}
-          startIcon={isProcessing ? <CircularProgress size={20} color="inherit" /> : <ImageIcon />}
-          sx={{ flex: 1 }}
-        >
-          Process
-        </Button>
-        <Button
-          onClick={handleSave}
-          disabled={!processedImage}
-          startIcon={<SaveIcon />}
-          sx={{ flex: 0.5 }}
-        >
-          Save
-        </Button>
-      </ButtonGroup>
+      {/* Save Button */}
+      <Button
+        onClick={handleSave}
+        disabled={!processedImage || isProcessing}
+        startIcon={<SaveIcon />}
+        variant="contained"
+        fullWidth
+      >
+        Save
+      </Button>
 
       <Snackbar 
         open={!!error} 
@@ -212,6 +227,12 @@ export function ProcessingControls() {
           {error}
         </Alert>
       </Snackbar>
+
+      {isProcessing && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+          <CircularProgress size={24} />
+        </Box>
+      )}
     </Stack>
   );
 }

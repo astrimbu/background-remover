@@ -1,13 +1,11 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { EditorState, ProcessingOptions, AVAILABLE_MODELS } from '@/types/editor';
+import { EditorState, ProcessingOptions, AVAILABLE_MODELS, HistoryEntry } from '@/types/editor';
 
 const initialSettings: ProcessingOptions = {
   model: 'u2net',
-  foregroundThreshold: 100,
-  backgroundThreshold: 100,
-  erodeSize: 3,
-  kernelSize: 1
+  foregroundThreshold: 50,
+  erodeSize: 3
 };
 
 export const useEditorStore = create<EditorState>()(
@@ -24,9 +22,21 @@ export const useEditorStore = create<EditorState>()(
             settings: { ...state.settings, ...settings } 
           })),
         addToHistory: (imageUrl) =>
+          set((state) => {
+            const newEntry: HistoryEntry = {
+              imageUrl,
+              settings: { ...state.settings },
+              timestamp: Date.now()
+            };
+            return {
+              processedImage: imageUrl,
+              history: [newEntry, ...state.history].slice(0, 10)  // Keep last 10 entries
+            };
+          }),
+        restoreFromHistory: (entry) =>
           set((state) => ({
-            processedImage: imageUrl,
-            history: [imageUrl, ...state.history].slice(0, 10)
+            settings: { ...entry.settings },
+            processedImage: entry.imageUrl
           }))
       }
     }),

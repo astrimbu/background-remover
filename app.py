@@ -184,21 +184,34 @@ def remove_background():
         # Get processing options
         options = json.loads(request.form.get('options', '{}'))
         model_name = options.get('model', 'u2net')
+        print(f"Received options: {options}")  # Debug log
         
         # Read the image
         input_image = Image.open(file.stream)
         
         # Process the image
         session = new_session(model_name)
+        
+        # Convert edge softness to alpha matting thresholds
+        edge_softness = options.get('foregroundThreshold', 100)
+        print(f"Edge softness: {edge_softness}")  # Debug log
+        
+        # Invert the edge softness for foreground threshold (0 softness = high threshold = hard edges)
+        # and use it directly for background threshold (high softness = high threshold = more background blending)
+        fg_threshold = int(((100 - edge_softness) / 100) * 255)  # Inverted
+        bg_threshold = int((edge_softness / 100) * 255)  # Direct
+        
+        print(f"Calculated thresholds - FG: {fg_threshold}, BG: {bg_threshold}")  # Debug log
+        
         output_image = remove(
             input_image,
             session=session,
             alpha_matting=True,
-            alpha_matting_foreground_threshold=options.get('foregroundThreshold', 100),
-            alpha_matting_background_threshold=options.get('backgroundThreshold', 100),
+            alpha_matting_foreground_threshold=fg_threshold,
+            alpha_matting_background_threshold=bg_threshold,
             alpha_matting_erode_size=options.get('erodeSize', 3),
-            alpha_matting_kernel_size=options.get('kernelSize', 1),
-            post_process_mask=True
+            post_process_mask=True,
+            only_mask=False
         )
         
         # Convert to bytes

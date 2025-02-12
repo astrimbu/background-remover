@@ -13,6 +13,7 @@ export const imageApi = {
     const formData = new FormData();
     formData.append('image', file);
     formData.append('options', JSON.stringify(options));
+    console.log('Sending options to backend:', options);  // Debug log
     
     const response = await api.post('/remove-background', formData, {
       responseType: 'arraybuffer'
