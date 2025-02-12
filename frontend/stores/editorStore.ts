@@ -15,6 +15,7 @@ export const useEditorStore = create<EditorState>()(
       processedImage: null,
       history: [],
       settings: initialSettings,
+      maximizedView: null,
       actions: {
         setCurrentImage: (file) => set({ currentImage: file }),
         updateSettings: (settings) => 
@@ -37,7 +38,9 @@ export const useEditorStore = create<EditorState>()(
           set((state) => ({
             settings: { ...entry.settings },
             processedImage: entry.imageUrl
-          }))
+          })),
+        setMaximizedView: (view: 'original' | 'processed' | null) =>
+          set({ maximizedView: view })
       }
     }),
     { name: 'editor-store' }

@@ -20,10 +20,14 @@ import {
   Alert,
   Divider,
   IconButton,
-  Tooltip
+  Tooltip,
+  ToggleButtonGroup,
+  ToggleButton
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import CropFreeIcon from '@mui/icons-material/CropFree';
+import BlurOnIcon from '@mui/icons-material/BlurOn';
 
 // Default values for edge refinement settings
 const defaultEdgeSettings = {
@@ -170,18 +174,33 @@ export function ProcessingControls() {
         <Stack spacing={3}>
           <Box>
             <Typography variant="body2" gutterBottom color="text.primary" fontWeight="medium">
-              Edge Softness
+              Edge Type
             </Typography>
-            <Slider
+            <ToggleButtonGroup
               value={localSettings.foregroundThreshold}
-              onChange={handleSliderChange('foregroundThreshold')}
-              onChangeCommitted={handleSliderChangeCommitted('foregroundThreshold')}
-              min={0}
-              max={100}
-              valueLabelDisplay="auto"
-              size="small"
+              exclusive
+              fullWidth
+              onChange={(_, value) => {
+                if (value !== null) {
+                  setLocalSettings(prev => ({
+                    ...prev,
+                    foregroundThreshold: value
+                  }));
+                  updateSettings({ foregroundThreshold: value });
+                }
+              }}
               disabled={isProcessing}
-            />
+              size="small"
+            >
+              <ToggleButton value={0}>
+                <CropFreeIcon sx={{ mr: 1 }} />
+                Hard Edges
+              </ToggleButton>
+              <ToggleButton value={50}>
+                <BlurOnIcon sx={{ mr: 1 }} />
+                Soft Edges
+              </ToggleButton>
+            </ToggleButtonGroup>
           </Box>
 
           <Box>

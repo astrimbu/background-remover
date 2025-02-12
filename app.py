@@ -192,23 +192,20 @@ def remove_background():
         # Process the image
         session = new_session(model_name)
         
-        # Convert edge softness to alpha matting thresholds
-        edge_softness = options.get('foregroundThreshold', 100)
-        print(f"Edge softness: {edge_softness}")  # Debug log
+        # Binary edge softness: 0 for hard edges, any other value for soft edges
+        edge_softness = options.get('foregroundThreshold', 50)
+        use_hard_edges = edge_softness == 0
         
-        # Invert the edge softness for foreground threshold (0 softness = high threshold = hard edges)
-        # and use it directly for background threshold (high softness = high threshold = more background blending)
-        fg_threshold = int(((100 - edge_softness) / 100) * 255)  # Inverted
-        bg_threshold = int((edge_softness / 100) * 255)  # Direct
-        
-        print(f"Calculated thresholds - FG: {fg_threshold}, BG: {bg_threshold}")  # Debug log
+        # Use appropriate threshold values for hard or soft edges
+        threshold = 255 if use_hard_edges else 128
+        print(f"Edge softness: {edge_softness}, Using hard edges: {use_hard_edges}")  # Debug log
         
         output_image = remove(
             input_image,
             session=session,
             alpha_matting=True,
-            alpha_matting_foreground_threshold=fg_threshold,
-            alpha_matting_background_threshold=bg_threshold,
+            alpha_matting_foreground_threshold=threshold,
+            alpha_matting_background_threshold=threshold,
             alpha_matting_erode_size=options.get('erodeSize', 3),
             post_process_mask=True,
             only_mask=False
@@ -221,11 +218,8 @@ def remove_background():
         
         return send_file(
             img_byte_arr,
-            mimetype='image/png',
-            as_attachment=True,
-            download_name='processed.png'
+            mimetype='image/png'
         )
-        
     except Exception as e:
         print(f"Error processing image: {str(e)}")
         return jsonify({'error': str(e)}), 500

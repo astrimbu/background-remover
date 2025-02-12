@@ -8,12 +8,14 @@ import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import RestoreIcon from '@mui/icons-material/Restore';
 import { BackgroundToggle, BackgroundToggleButton } from '@/components/BackgroundToggle';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 
 type BackgroundType = 'transparent' | 'light' | 'dark';
 
 export default function EditorPage() {
-  const { currentImage, processedImage, history } = useEditorStore();
-  const { setCurrentImage, restoreFromHistory } = useEditorStore(state => state.actions);
+  const { currentImage, processedImage, history, maximizedView } = useEditorStore();
+  const { setCurrentImage, restoreFromHistory, setMaximizedView } = useEditorStore(state => state.actions);
   const [background, setBackground] = useState<BackgroundType>('transparent');
   
   const handleToggle = useCallback(() => {
@@ -37,6 +39,10 @@ export default function EditorPage() {
     multiple: false,
     noClick: true
   });
+
+  const handleMaximize = useCallback((view: 'original' | 'processed') => {
+    setMaximizedView(maximizedView === view ? null : view);
+  }, [maximizedView, setMaximizedView]);
 
   return (
     <div {...getRootProps()}>
@@ -108,48 +114,64 @@ export default function EditorPage() {
             </div>
 
             {/* Right panel - Main editor area */}
-            <div className="lg:col-span-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Original image */}
-                <Paper className="p-6">
+            <div className={`lg:col-span-2 ${maximizedView ? 'grid grid-cols-1' : 'grid grid-cols-1 md:grid-cols-2'} gap-8`}>
+              {/* Original image */}
+              {(!maximizedView || maximizedView === 'original') && (
+                <Paper className={`p-6 ${maximizedView === 'original' ? 'md:col-span-2' : ''}`}>
                   <div className="flex items-center justify-between mb-3">
                     <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 'bold' }}>
                       Original Image
                     </Typography>
+                    {currentImage && (
+                      <Tooltip title={maximizedView === 'original' ? "Exit Fullscreen" : "Fullscreen"}>
+                        <IconButton onClick={() => handleMaximize('original')} size="small">
+                          {maximizedView === 'original' ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </div>
                   {currentImage ? (
                     <img 
                       src={URL.createObjectURL(currentImage)} 
                       alt="Original image"
-                      className="max-h-[500px] max-w-full mx-auto object-contain rounded-lg overflow-hidden"
+                      className={`mx-auto object-contain rounded-lg overflow-hidden ${maximizedView === 'original' ? 'max-h-[800px]' : 'max-h-[500px]'} max-w-full cursor-pointer`}
+                      onClick={() => handleMaximize('original')}
                     />
                   ) : (
                     <ImageDropzone />
                   )}
                 </Paper>
+              )}
 
-                {/* Processed image */}
-                {processedImage && (
-                  <Paper className="p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 'bold' }}>
-                        Processed Image
-                      </Typography>
+              {/* Processed image */}
+              {processedImage && (!maximizedView || maximizedView === 'processed') && (
+                <Paper className={`p-6 ${maximizedView === 'processed' ? 'md:col-span-2' : ''}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 'bold' }}>
+                      Processed Image
+                    </Typography>
+                    <div className="flex items-center gap-2">
+                      <Tooltip title={maximizedView === 'processed' ? "Exit Fullscreen" : "Fullscreen"}>
+                        <IconButton onClick={() => handleMaximize('processed')} size="small">
+                          {maximizedView === 'processed' ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                        </IconButton>
+                      </Tooltip>
                       <BackgroundToggleButton 
                         onClick={handleToggle} 
                         background={background}
                       />
                     </div>
-                    <BackgroundToggle background={background}>
-                      <img 
-                        src={processedImage} 
-                        alt="Processed image"
-                        className="max-h-[500px] max-w-full mx-auto object-contain rounded-lg overflow-hidden"
-                      />
-                    </BackgroundToggle>
-                  </Paper>
-                )}
-              </div>
+                  </div>
+                  <BackgroundToggle background={background}>
+                    <img 
+                      src={processedImage} 
+                      alt="Processed image"
+                      className={`mx-auto object-contain rounded-lg overflow-hidden ${maximizedView === 'processed' ? 'max-h-[800px]' : 'max-h-[500px]'} max-w-full cursor-pointer`}
+                      onClick={() => handleMaximize('processed')}
+                    />
+                  </BackgroundToggle>
+                </Paper>
+              )}
             </div>
           </div>
         </div>

@@ -31,10 +31,12 @@ export interface EditorState {
   processedImage: string | null;
   history: HistoryEntry[];
   settings: ProcessingOptions;
+  maximizedView: 'original' | 'processed' | null;
   actions: {
     setCurrentImage: (file: File) => void;
     updateSettings: (settings: Partial<ProcessingOptions>) => void;
     addToHistory: (imageUrl: string) => void;
     restoreFromHistory: (entry: HistoryEntry) => void;
+    setMaximizedView: (view: 'original' | 'processed' | null) => void;
   };
 } 
