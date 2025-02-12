@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
-import { AVAILABLE_MODELS } from '@/types/editor';
+import { AVAILABLE_MODELS, DEFAULT_SETTINGS } from '@/types/editor';
 import { imageApi } from '@/lib/api';
 import { 
   FormControl,
@@ -22,24 +22,26 @@ import {
   IconButton,
   Tooltip,
   ToggleButtonGroup,
-  ToggleButton
+  ToggleButton,
+  TextField,
+  InputAdornment,
+  Switch
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import CropFreeIcon from '@mui/icons-material/CropFree';
 import BlurOnIcon from '@mui/icons-material/BlurOn';
-
-// Default values for edge refinement settings
-const defaultEdgeSettings = {
-  foregroundThreshold: 50,
-  erodeSize: 3
-};
+import AspectRatioIcon from '@mui/icons-material/AspectRatio';
+import FitScreenIcon from '@mui/icons-material/FitScreen';
+import LockIcon from '@mui/icons-material/Lock';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 
 export function ProcessingControls() {
   const settings = useEditorStore(state => state.settings);
   const currentImage = useEditorStore(state => state.currentImage);
   const processedImage = useEditorStore(state => state.processedImage);
-  const { updateSettings, addToHistory } = useEditorStore(state => state.actions);
+  const originalDimensions = useEditorStore(state => state.originalDimensions);
+  const { updateSettings, addToHistory, resetSettings } = useEditorStore(state => state.actions);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,13 +127,72 @@ export function ProcessingControls() {
 
   const handleResetEdgeSettings = useCallback(() => {
     updateSettings({
-      foregroundThreshold: defaultEdgeSettings.foregroundThreshold,
-      erodeSize: defaultEdgeSettings.erodeSize
+      foregroundThreshold: DEFAULT_SETTINGS.foregroundThreshold,
+      erodeSize: DEFAULT_SETTINGS.erodeSize
     });
   }, [updateSettings]);
 
+  const handleResetFittingSettings = useCallback(() => {
+    updateSettings({
+      borderEnabled: DEFAULT_SETTINGS.borderEnabled,
+      borderSize: DEFAULT_SETTINGS.borderSize
+    });
+  }, [updateSettings]);
+
+  const handleResetResizingSettings = useCallback(() => {
+    updateSettings({
+      targetWidth: originalDimensions?.width ?? null,
+      targetHeight: originalDimensions?.height ?? null,
+      maintainAspectRatio: DEFAULT_SETTINGS.maintainAspectRatio
+    });
+  }, [updateSettings, originalDimensions]);
+
+  const handleResetAll = useCallback(() => {
+    resetSettings();
+  }, [resetSettings]);
+
+  const handleAspectRatioToggle = useCallback(() => {
+    updateSettings({ maintainAspectRatio: !settings.maintainAspectRatio });
+  }, [settings.maintainAspectRatio, updateSettings]);
+
+  const handleDimensionChange = useCallback((dimension: 'targetWidth' | 'targetHeight') => (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value === '' ? null : Number(event.target.value);
+    if (value === null || (value > 0 && value <= 10000)) {
+      if (settings.maintainAspectRatio && currentImage) {
+        const img = new Image();
+        img.src = URL.createObjectURL(currentImage);
+        img.onload = () => {
+          const aspectRatio = img.width / img.height;
+          if (dimension === 'targetWidth' && value !== null) {
+            updateSettings({
+              targetWidth: value,
+              targetHeight: Math.round(value / aspectRatio)
+            });
+          } else if (dimension === 'targetHeight' && value !== null) {
+            updateSettings({
+              targetHeight: value,
+              targetWidth: Math.round(value * aspectRatio)
+            });
+          } else {
+            updateSettings({
+              [dimension]: value
+            });
+          }
+        };
+      } else {
+        updateSettings({
+          [dimension]: value
+        });
+      }
+    }
+  }, [settings.maintainAspectRatio, currentImage, updateSettings]);
+
+  const handleBorderToggle = useCallback(() => {
+    updateSettings({ borderEnabled: !settings.borderEnabled });
+  }, [settings.borderEnabled, updateSettings]);
+
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2} sx={{ width: '100%', p: 2 }}>
       {/* Model Selection */}
       <FormControl>
         <InputLabel id="model-select-label" sx={{ color: 'text.primary' }}>Model</InputLabel>
@@ -152,6 +213,17 @@ export function ProcessingControls() {
         </Select>
       </FormControl>
 
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          Reset All Settings
+        </Typography>
+        <Tooltip title="Reset all settings to defaults">
+          <IconButton onClick={handleResetAll} size="small">
+            <RestartAltIcon />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
       <Divider />
 
       {/* Edge Refinement */}
@@ -160,7 +232,7 @@ export function ProcessingControls() {
           <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 'medium' }}>
             Edge Refinement
           </Typography>
-          <Tooltip title="Reset to defaults">
+          <Tooltip title="Reset edge settings">
             <IconButton 
               onClick={handleResetEdgeSettings}
               size="small"
@@ -252,6 +324,95 @@ export function ProcessingControls() {
           <CircularProgress size={24} />
         </Box>
       )}
+
+      <Divider sx={{ my: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          Image Fitting
+        </Typography>
+      </Divider>
+
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography>
+              Border Size
+              <Tooltip title="Adds padding around the image content">
+                <IconButton size="small" sx={{ ml: 1 }}>
+                  <FitScreenIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Typography>
+            <Switch
+              checked={settings.borderEnabled}
+              onChange={handleBorderToggle}
+              size="small"
+              sx={{ ml: 1 }}
+            />
+          </Box>
+          <Tooltip title="Reset border settings">
+            <IconButton onClick={handleResetFittingSettings} size="small">
+              <RestartAltIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        <Slider
+          value={localSettings.borderSize}
+          onChange={handleSliderChange('borderSize')}
+          onChangeCommitted={handleSliderChangeCommitted('borderSize')}
+          min={0}
+          max={50}
+          disabled={!settings.borderEnabled}
+          valueLabelDisplay="auto"
+          valueLabelFormat={(value) => `${value}%`}
+        />
+      </Box>
+
+      <Divider sx={{ my: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          Image Resizing
+        </Typography>
+      </Divider>
+
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="body2">Dimensions</Typography>
+          <Tooltip title="Reset to original dimensions">
+            <IconButton onClick={handleResetResizingSettings} size="small">
+              <RestartAltIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        
+        <Stack direction="row" spacing={2} alignItems="center">
+          <FormControl fullWidth>
+            <TextField
+              label="Width"
+              type="number"
+              value={settings.targetWidth ?? ''}
+              onChange={handleDimensionChange('targetWidth')}
+              InputProps={{
+                endAdornment: <InputAdornment position="end">px</InputAdornment>
+              }}
+            />
+          </FormControl>
+
+          <IconButton onClick={handleAspectRatioToggle}>
+            {settings.maintainAspectRatio ? <LockIcon /> : <LockOpenIcon />}
+          </IconButton>
+
+          <FormControl fullWidth>
+            <TextField
+              label="Height"
+              type="number"
+              value={settings.targetHeight ?? ''}
+              onChange={handleDimensionChange('targetHeight')}
+              InputProps={{
+                endAdornment: <InputAdornment position="end">px</InputAdornment>
+              }}
+            />
+          </FormControl>
+        </Stack>
+      </Box>
     </Stack>
   );
 }

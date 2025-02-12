@@ -12,8 +12,21 @@ export const imageApi = {
   removeBackground: async (file: File, options: ProcessingOptions) => {
     const formData = new FormData();
     formData.append('image', file);
-    formData.append('options', JSON.stringify(options));
-    console.log('Sending options to backend:', options);  // Debug log
+    
+    // Convert camelCase to snake_case for backend compatibility
+    const backendSettings = {
+      foreground_threshold: options.foregroundThreshold,
+      erode_size: options.erodeSize,
+      model: options.model,
+      border_enabled: options.borderEnabled,
+      border_size: options.borderSize,
+      target_width: options.targetWidth,
+      target_height: options.targetHeight,
+      maintain_aspect_ratio: options.maintainAspectRatio
+    };
+    
+    formData.append('settings', JSON.stringify(backendSettings));
+    console.log('Sending settings to backend:', backendSettings);  // Debug log
     
     const response = await api.post('/remove-background', formData, {
       responseType: 'arraybuffer'

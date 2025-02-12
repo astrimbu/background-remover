@@ -1,27 +1,41 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { EditorState, ProcessingOptions, AVAILABLE_MODELS, HistoryEntry } from '@/types/editor';
-
-const initialSettings: ProcessingOptions = {
-  model: 'u2net',
-  foregroundThreshold: 50,
-  erodeSize: 3
-};
+import { EditorState, ProcessingOptions, AVAILABLE_MODELS, HistoryEntry, DEFAULT_SETTINGS } from '@/types/editor';
 
 export const useEditorStore = create<EditorState>()(
   devtools(
     (set) => ({
       currentImage: null,
       processedImage: null,
+      originalDimensions: null,
       history: [],
-      settings: initialSettings,
+      settings: DEFAULT_SETTINGS,
       maximizedView: null,
       actions: {
-        setCurrentImage: (file) => set({ currentImage: file }),
+        setCurrentImage: (file) => {
+          // When setting a new image, read its dimensions
+          const img = new Image();
+          img.onload = () => {
+            URL.revokeObjectURL(img.src);
+            set((state) => ({
+              currentImage: file,
+              originalDimensions: { width: img.width, height: img.height },
+              // Only update dimensions if they haven't been set by the user
+              settings: {
+                ...state.settings,
+                targetWidth: state.settings.targetWidth ?? img.width,
+                targetHeight: state.settings.targetHeight ?? img.height
+              }
+            }));
+          };
+          img.src = URL.createObjectURL(file);
+        },
         updateSettings: (settings) => 
           set((state) => ({ 
             settings: { ...state.settings, ...settings } 
           })),
+        setOriginalDimensions: (dimensions) =>
+          set({ originalDimensions: dimensions }),
         addToHistory: (imageUrl) =>
           set((state) => {
             const newEntry: HistoryEntry = {
@@ -40,7 +54,16 @@ export const useEditorStore = create<EditorState>()(
             processedImage: entry.imageUrl
           })),
         setMaximizedView: (view: 'original' | 'processed' | null) =>
-          set({ maximizedView: view })
+          set({ maximizedView: view }),
+        resetSettings: () =>
+          set((state) => ({
+            settings: {
+              ...DEFAULT_SETTINGS,
+              // If we have original dimensions, use them for target dimensions
+              targetWidth: state.originalDimensions?.width ?? null,
+              targetHeight: state.originalDimensions?.height ?? null
+            }
+          }))
       }
     }),
     { name: 'editor-store' }

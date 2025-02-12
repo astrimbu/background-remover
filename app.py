@@ -14,6 +14,7 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+# Available models matching frontend's AVAILABLE_MODELS
 AVAILABLE_MODELS = {
     "u2net": "General Purpose (Balanced)",
     "u2net_human_seg": "Human/Portrait (Fast)",
@@ -21,19 +22,12 @@ AVAILABLE_MODELS = {
     "silueta": "General Purpose (Fastest)",
 }
 
-DEFAULT_SETTINGS = {
-    'foreground_threshold': 100,
-    'background_threshold': 100,
-    'erode_size': 3,
-    'kernel_size': 1
-}
-
 # ComfyUI API settings
 COMFYUI_API = "http://127.0.0.1:8188"
 WORKFLOW_FILE = "workflow_api.json"
 BASE_IMAGES_DIR = "base-img"
 
-def fit_to_canvas(image, border_percent=10):
+def fit_to_canvas(image, border_percent):
     """Fits image to a square canvas with specified border percentage."""
     # Convert to RGBA if not already
     if image.mode != 'RGBA':
@@ -61,6 +55,10 @@ def fit_to_canvas(image, border_percent=10):
     max_dimension = max(content_width, content_height)
     border_size = int(max_dimension * (border_percent / 100))
     canvas_size = max_dimension + (2 * border_size)
+    
+    # If border_percent is 0, make canvas size exactly match the larger dimension
+    if border_percent == 0:
+        canvas_size = max_dimension
     
     # Create new square image with transparent background
     new_image = Image.new('RGBA', (canvas_size, canvas_size), (0, 0, 0, 0))
@@ -155,7 +153,7 @@ def modify_workflow(workflow, style_image_path=None, base_image=None, prompt=Non
 
 @app.route('/')
 def index():
-    return render_template('index.html', models=AVAILABLE_MODELS, defaults=DEFAULT_SETTINGS)
+    return render_template('index.html', models=AVAILABLE_MODELS)
 
 @app.route('/switch-model', methods=['POST'])
 def switch_model():
@@ -171,55 +169,84 @@ def switch_model():
 def get_models():
     return jsonify(AVAILABLE_MODELS)
 
+def process_image(image, settings):
+    """Process image with background removal and optional fitting/resizing"""
+    # Convert to RGBA if not already
+    if image.mode != 'RGBA':
+        image = image.convert('RGBA')
+    
+    # Remove background using settings from frontend
+    output = remove(
+        image,
+        alpha_matting=True,
+        alpha_matting_foreground_threshold=settings['foreground_threshold'],
+        alpha_matting_erode_size=settings['erode_size']
+    )
+    
+    # Apply border only if enabled
+    if settings['border_enabled']:
+        border_size = settings['border_size']
+        print(f"Applying border size: {border_size}%")  # Debug log
+        output = fit_to_canvas(output, border_percent=border_size)
+    
+    # Apply resizing if specified
+    target_width = settings['target_width']
+    target_height = settings['target_height']
+    if target_width or target_height:
+        current_width, current_height = output.size
+        print(f"Current dimensions: {current_width}x{current_height}")  # Debug log
+        if settings['maintain_aspect_ratio']:
+            # Calculate new dimensions maintaining aspect ratio
+            if target_width and target_height:
+                # Use the more constraining dimension
+                width_ratio = target_width / current_width
+                height_ratio = target_height / current_height
+                ratio = min(width_ratio, height_ratio)
+                new_width = int(current_width * ratio)
+                new_height = int(current_height * ratio)
+            elif target_width:
+                ratio = target_width / current_width
+                new_width = target_width
+                new_height = int(current_height * ratio)
+            else:  # target_height
+                ratio = target_height / current_height
+                new_width = int(current_width * ratio)
+                new_height = target_height
+        else:
+            # Use exact dimensions
+            new_width = target_width or current_width
+            new_height = target_height or current_height
+        
+        print(f"Resizing to: {new_width}x{new_height}")  # Debug log
+        output = output.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    
+    return output
+
 @app.route('/api/remove-background', methods=['POST'])
 def remove_background():
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image file provided'}), 400
-    
-    file = request.files['image']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-
     try:
-        # Get processing options
-        options = json.loads(request.form.get('options', '{}'))
-        model_name = options.get('model', 'u2net')
-        print(f"Received options: {options}")  # Debug log
+        # Get image file and settings from request
+        file = request.files.get('image')
+        if not file:
+            return jsonify({'error': 'No image provided'}), 400
         
-        # Read the image
-        input_image = Image.open(file.stream)
+        # Get settings from frontend, which will include all defaults
+        settings = json.loads(request.form.get('settings', '{}'))
         
-        # Process the image
-        session = new_session(model_name)
+        # Load and process image
+        image = Image.open(file.stream)
+        output = process_image(image, settings)
         
-        # Binary edge softness: 0 for hard edges, any other value for soft edges
-        edge_softness = options.get('foregroundThreshold', 50)
-        use_hard_edges = edge_softness == 0
-        
-        # Use appropriate threshold values for hard or soft edges
-        threshold = 255 if use_hard_edges else 128
-        print(f"Edge softness: {edge_softness}, Using hard edges: {use_hard_edges}")  # Debug log
-        
-        output_image = remove(
-            input_image,
-            session=session,
-            alpha_matting=True,
-            alpha_matting_foreground_threshold=threshold,
-            alpha_matting_background_threshold=threshold,
-            alpha_matting_erode_size=options.get('erodeSize', 3),
-            post_process_mask=True,
-            only_mask=False
-        )
-        
-        # Convert to bytes
+        # Convert to bytes and return
         img_byte_arr = io.BytesIO()
-        output_image.save(img_byte_arr, format='PNG')
+        output.save(img_byte_arr, format='PNG')
         img_byte_arr.seek(0)
         
         return send_file(
             img_byte_arr,
             mimetype='image/png'
         )
+    
     except Exception as e:
         print(f"Error processing image: {str(e)}")
         return jsonify({'error': str(e)}), 500
@@ -228,7 +255,7 @@ def remove_background():
 def fit_image_to_canvas():
     try:
         file = request.files['image']
-        border_percent = int(request.form.get('border', 10))
+        border_percent = int(request.form.get('border', 0))  # Default to 0 if not specified
         
         # Open and fit image to canvas
         img = Image.open(file)
