@@ -4,14 +4,24 @@ import { useEditorStore } from '@/stores/editorStore';
 import { ImageDropzone } from '@/components/ImageDropzone';
 import { ProcessingControls } from '@/components/ProcessingControls';
 import { Typography, Box, Paper, IconButton, Tooltip } from '@mui/material';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import RestoreIcon from '@mui/icons-material/Restore';
+import { BackgroundToggle, BackgroundToggleButton } from '@/components/BackgroundToggle';
+
+type BackgroundType = 'transparent' | 'light' | 'dark';
 
 export default function EditorPage() {
   const { currentImage, processedImage, history } = useEditorStore();
   const { setCurrentImage, restoreFromHistory } = useEditorStore(state => state.actions);
+  const [background, setBackground] = useState<BackgroundType>('transparent');
   
+  const handleToggle = useCallback(() => {
+    const sequence: BackgroundType[] = ['transparent', 'light', 'dark'];
+    const currentIndex = sequence.indexOf(background);
+    setBackground(sequence[(currentIndex + 1) % sequence.length]);
+  }, [background]);
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
@@ -67,7 +77,7 @@ export default function EditorPage() {
                         <img
                           src={entry.imageUrl}
                           alt={`History ${index + 1}`}
-                          className="w-full h-auto rounded cursor-pointer"
+                          className="w-full h-auto rounded-lg cursor-pointer"
                           onClick={() => restoreFromHistory(entry)}
                         />
                         <Tooltip title="Restore these settings">
@@ -102,14 +112,16 @@ export default function EditorPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Original image */}
                 <Paper className="p-6">
-                  <Typography variant="h6" sx={{ color: 'text.primary', mb: 3, fontWeight: 'bold' }}>
-                    Original Image
-                  </Typography>
+                  <div className="flex items-center justify-between mb-3">
+                    <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 'bold' }}>
+                      Original Image
+                    </Typography>
+                  </div>
                   {currentImage ? (
                     <img 
                       src={URL.createObjectURL(currentImage)} 
                       alt="Original image"
-                      className="max-h-[500px] max-w-full mx-auto object-contain"
+                      className="max-h-[500px] max-w-full mx-auto object-contain rounded-lg overflow-hidden"
                     />
                   ) : (
                     <ImageDropzone />
@@ -119,14 +131,22 @@ export default function EditorPage() {
                 {/* Processed image */}
                 {processedImage && (
                   <Paper className="p-6">
-                    <Typography variant="h6" sx={{ color: 'text.primary', mb: 3, fontWeight: 'bold' }}>
-                      Processed Image
-                    </Typography>
-                    <img 
-                      src={processedImage} 
-                      alt="Processed image"
-                      className="max-h-[500px] max-w-full mx-auto object-contain"
-                    />
+                    <div className="flex items-center justify-between mb-3">
+                      <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 'bold' }}>
+                        Processed Image
+                      </Typography>
+                      <BackgroundToggleButton 
+                        onClick={handleToggle} 
+                        background={background}
+                      />
+                    </div>
+                    <BackgroundToggle background={background}>
+                      <img 
+                        src={processedImage} 
+                        alt="Processed image"
+                        className="max-h-[500px] max-w-full mx-auto object-contain rounded-lg overflow-hidden"
+                      />
+                    </BackgroundToggle>
                   </Paper>
                 )}
               </div>
