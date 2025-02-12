@@ -114,10 +114,10 @@ export default function EditorPage() {
             </div>
 
             {/* Right panel - Main editor area */}
-            <div className={`lg:col-span-2 ${maximizedView ? 'grid grid-cols-1' : 'grid grid-cols-1 md:grid-cols-2'} gap-8`}>
+            <div className={`lg:col-span-2 ${maximizedView ? 'grid grid-cols-1' : 'grid grid-cols-1 md:grid-cols-2'} gap-8 content-start`}>
               {/* Original image */}
               {(!maximizedView || maximizedView === 'original') && (
-                <Paper className={`p-6 ${maximizedView === 'original' ? 'md:col-span-2' : ''}`}>
+                <Paper className={`p-6 h-fit ${maximizedView === 'original' ? 'md:col-span-2' : ''}`}>
                   <div className="flex items-center justify-between mb-3">
                     <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 'bold' }}>
                       Original Image
@@ -145,7 +145,7 @@ export default function EditorPage() {
 
               {/* Processed image */}
               {processedImage && (!maximizedView || maximizedView === 'processed') && (
-                <Paper className={`p-6 ${maximizedView === 'processed' ? 'md:col-span-2' : ''}`}>
+                <Paper className={`p-6 h-fit ${maximizedView === 'processed' ? 'md:col-span-2' : ''}`}>
                   <div className="flex items-center justify-between mb-3">
                     <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 'bold' }}>
                       Processed Image
