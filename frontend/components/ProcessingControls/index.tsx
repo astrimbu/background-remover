@@ -192,10 +192,10 @@ export function ProcessingControls() {
   }, [settings.borderEnabled, updateSettings]);
 
   return (
-    <Stack spacing={2} sx={{ width: '100%', p: 2 }}>
+    <Stack spacing={1} sx={{ width: '100%', p: 2 }}>
       {/* Model Selection */}
-      <FormControl>
-        <InputLabel id="model-select-label" sx={{ color: 'text.primary' }}>Model</InputLabel>
+      <FormControl fullWidth>
+        <InputLabel id="model-select-label">Model</InputLabel>
         <Select
           labelId="model-select-label"
           value={settings.model}
@@ -203,7 +203,6 @@ export function ProcessingControls() {
           onChange={handleModelChange}
           size="small"
           disabled={isProcessing}
-          sx={{ color: 'text.primary' }}
         >
           {Object.entries(AVAILABLE_MODELS).map(([key, label]) => (
             <MenuItem key={key} value={key}>
@@ -213,23 +212,11 @@ export function ProcessingControls() {
         </Select>
       </FormControl>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          Reset All Settings
-        </Typography>
-        <Tooltip title="Reset all settings to defaults">
-          <IconButton onClick={handleResetAll} size="small">
-            <RestartAltIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
+      <Divider sx={{ my: 1, p: 1 }} />
 
-      <Divider />
-
-      {/* Edge Refinement */}
-      <div>
+      <Box>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 'medium' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
             Edge Refinement
           </Typography>
           <Tooltip title="Reset edge settings">
@@ -243,40 +230,37 @@ export function ProcessingControls() {
           </Tooltip>
         </Box>
         
-        <Stack spacing={3}>
+        <Stack spacing={2}>
           <Box>
-            <Typography variant="body2" gutterBottom color="text.primary" fontWeight="medium">
+            <Typography variant="body2" gutterBottom sx={{ mb: 1 }}>
               Edge Type
             </Typography>
             <ToggleButtonGroup
-              value={localSettings.foregroundThreshold}
+              value={settings.foregroundThreshold === 0 ? "hard" : "soft"}
               exclusive
-              fullWidth
               onChange={(_, value) => {
-                if (value !== null) {
-                  setLocalSettings(prev => ({
-                    ...prev,
-                    foregroundThreshold: value
-                  }));
-                  updateSettings({ foregroundThreshold: value });
+                if (value === "hard") {
+                  updateSettings({ foregroundThreshold: 0 });
+                } else if (value === "soft") {
+                  updateSettings({ foregroundThreshold: 50 });
                 }
               }}
-              disabled={isProcessing}
+              fullWidth
               size="small"
             >
-              <ToggleButton value={0}>
+              <ToggleButton value="hard">
                 <CropFreeIcon sx={{ mr: 1 }} />
-                Hard Edges
+                HARD EDGES
               </ToggleButton>
-              <ToggleButton value={50}>
+              <ToggleButton value="soft">
                 <BlurOnIcon sx={{ mr: 1 }} />
-                Soft Edges
+                SOFT EDGES
               </ToggleButton>
             </ToggleButtonGroup>
           </Box>
 
           <Box>
-            <Typography variant="body2" gutterBottom color="text.primary" fontWeight="medium">
+            <Typography variant="body2" gutterBottom sx={{ mb: 1 }}>
               Erode Size
             </Typography>
             <Slider
@@ -284,135 +268,132 @@ export function ProcessingControls() {
               onChange={handleSliderChange('erodeSize')}
               onChangeCommitted={handleSliderChangeCommitted('erodeSize')}
               min={0}
-              max={10}
-              step={1}
-              marks
+              max={20}
               valueLabelDisplay="auto"
-              size="small"
+              marks
               disabled={isProcessing}
             />
           </Box>
         </Stack>
-      </div>
+      </Box>
 
-      <Divider />
+      <Divider sx={{ my: 1 }} />
 
-      {/* Save Button */}
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+            Image Fitting
+          </Typography>
+          <Tooltip title="Reset fitting settings">
+            <IconButton 
+              onClick={handleResetFittingSettings}
+              size="small"
+              disabled={isProcessing}
+            >
+              <RestartAltIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        <Stack spacing={2}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="body2">Border</Typography>
+            <Switch
+              checked={settings.borderEnabled}
+              onChange={handleBorderToggle}
+              disabled={isProcessing}
+            />
+          </Box>
+
+          {settings.borderEnabled && (
+            <Box>
+              <Typography variant="body2" gutterBottom sx={{ mb: 1 }}>
+                Border Size
+              </Typography>
+              <Slider
+                value={localSettings.borderSize}
+                onChange={handleSliderChange('borderSize')}
+                onChangeCommitted={handleSliderChangeCommitted('borderSize')}
+                min={0}
+                max={50}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(value) => `${value}%`}
+                marks
+                disabled={isProcessing}
+              />
+            </Box>
+          )}
+        </Stack>
+      </Box>
+
+      <Divider sx={{ my: 1 }} />
+
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+            Image Resizing
+          </Typography>
+          <Tooltip title="Reset resizing settings">
+            <IconButton 
+              onClick={handleResetResizingSettings}
+              size="small"
+              disabled={isProcessing}
+            >
+              <RestartAltIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        <Stack spacing={2}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <TextField
+              label="Width"
+              value={settings.targetWidth ?? ''}
+              onChange={handleDimensionChange('targetWidth')}
+              size="small"
+              type="number"
+              InputProps={{
+                endAdornment: <InputAdornment position="end">px</InputAdornment>,
+              }}
+              disabled={isProcessing}
+            />
+            <TextField
+              label="Height"
+              value={settings.targetHeight ?? ''}
+              onChange={handleDimensionChange('targetHeight')}
+              size="small"
+              type="number"
+              InputProps={{
+                endAdornment: <InputAdornment position="end">px</InputAdornment>,
+              }}
+              disabled={isProcessing}
+            />
+            <Tooltip title={settings.maintainAspectRatio ? "Aspect ratio locked" : "Aspect ratio unlocked"}>
+              <IconButton onClick={handleAspectRatioToggle} size="small">
+                {settings.maintainAspectRatio ? <LockIcon /> : <LockOpenIcon />}
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Stack>
+      </Box>
+      
+      <br />
+
       <Button
+        variant="contained"
         onClick={handleSave}
         disabled={!processedImage || isProcessing}
-        startIcon={<SaveIcon />}
-        variant="contained"
+        startIcon={isProcessing ? <CircularProgress size={20} /> : <SaveIcon />}
         fullWidth
       >
         Save
       </Button>
 
-      <Snackbar 
-        open={!!error} 
-        autoHideDuration={6000} 
-        onClose={() => setError(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setError(null)} severity="error" variant="filled">
+      <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
+        <Alert onClose={() => setError(null)} severity="error" sx={{ width: '100%' }}>
           {error}
         </Alert>
       </Snackbar>
-
-      {isProcessing && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-          <CircularProgress size={24} />
-        </Box>
-      )}
-
-      <Divider sx={{ my: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          Image Fitting
-        </Typography>
-      </Divider>
-
-      <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography>
-              Border Size
-              <Tooltip title="Adds padding around the image content">
-                <IconButton size="small" sx={{ ml: 1 }}>
-                  <FitScreenIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Typography>
-            <Switch
-              checked={settings.borderEnabled}
-              onChange={handleBorderToggle}
-              size="small"
-              sx={{ ml: 1 }}
-            />
-          </Box>
-          <Tooltip title="Reset border settings">
-            <IconButton onClick={handleResetFittingSettings} size="small">
-              <RestartAltIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-        <Slider
-          value={localSettings.borderSize}
-          onChange={handleSliderChange('borderSize')}
-          onChangeCommitted={handleSliderChangeCommitted('borderSize')}
-          min={0}
-          max={50}
-          disabled={!settings.borderEnabled}
-          valueLabelDisplay="auto"
-          valueLabelFormat={(value) => `${value}%`}
-        />
-      </Box>
-
-      <Divider sx={{ my: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          Image Resizing
-        </Typography>
-      </Divider>
-
-      <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body2">Dimensions</Typography>
-          <Tooltip title="Reset to original dimensions">
-            <IconButton onClick={handleResetResizingSettings} size="small">
-              <RestartAltIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-        
-        <Stack direction="row" spacing={2} alignItems="center">
-          <FormControl fullWidth>
-            <TextField
-              label="Width"
-              type="number"
-              value={settings.targetWidth ?? ''}
-              onChange={handleDimensionChange('targetWidth')}
-              InputProps={{
-                endAdornment: <InputAdornment position="end">px</InputAdornment>
-              }}
-            />
-          </FormControl>
-
-          <IconButton onClick={handleAspectRatioToggle}>
-            {settings.maintainAspectRatio ? <LockIcon /> : <LockOpenIcon />}
-          </IconButton>
-
-          <FormControl fullWidth>
-            <TextField
-              label="Height"
-              type="number"
-              value={settings.targetHeight ?? ''}
-              onChange={handleDimensionChange('targetHeight')}
-              InputProps={{
-                endAdornment: <InputAdornment position="end">px</InputAdornment>
-              }}
-            />
-          </FormControl>
-        </Stack>
-      </Box>
     </Stack>
   );
 }
