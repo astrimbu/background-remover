@@ -210,9 +210,13 @@ def process_image(image, settings):
     if image.mode != 'RGBA':
         image = image.convert('RGBA')
     
+    # Create a new session with the selected model
+    session = new_session(settings['model'])
+    
     # Remove background using settings from frontend
     output = remove(
         image,
+        session=session,  # Use the model-specific session
         alpha_matting=True,
         alpha_matting_foreground_threshold=settings['foreground_threshold'],
         alpha_matting_erode_size=settings['erode_size']

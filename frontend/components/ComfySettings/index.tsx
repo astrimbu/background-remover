@@ -65,7 +65,17 @@ export default function ComfySettings() {
           label="Generation Prompt"
           value={settings.prompt}
           onChange={(e) => actions.updateSettings({ prompt: e.target.value })}
-          helperText="Describe the image you want to generate"
+          helperText="Describe the image you want to generate. Press Enter to generate, Shift+Enter for new line"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              if (!e.shiftKey) {
+                e.preventDefault();
+                if (!isGenerating && settings.prompt.trim()) {
+                  handleGenerate();
+                }
+              }
+            }
+          }}
         />
 
         <TextField
