@@ -10,12 +10,13 @@ import RestoreIcon from '@mui/icons-material/Restore';
 import { BackgroundToggle, BackgroundToggleButton } from '@/components/BackgroundToggle';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 
 type BackgroundType = 'transparent' | 'light' | 'dark';
 
 export default function EditorPage() {
-  const { currentImage, processedImage, history, maximizedView } = useEditorStore();
-  const { setCurrentImage, restoreFromHistory, setMaximizedView } = useEditorStore(state => state.actions);
+  const { currentImage, processedImage, history, maximizedView, isHistoryMinimized } = useEditorStore();
+  const { setCurrentImage, restoreFromHistory, setMaximizedView, toggleHistoryMinimized, clearHistory } = useEditorStore(state => state.actions);
   const [background, setBackground] = useState<BackgroundType>('transparent');
   
   const handleToggle = useCallback(() => {
@@ -66,49 +67,65 @@ export default function EditorPage() {
               {/* History Panel */}
               {history.length > 0 && (
                 <Paper className="mt-4 p-6">
-                  <Typography variant="h6" sx={{ color: 'text.primary', mb: 3, fontWeight: 'bold' }}>
-                    History
-                  </Typography>
-                  <div className="grid grid-cols-2 gap-2">
-                    {history.map((entry, index) => (
-                      <Box
-                        key={entry.timestamp}
-                        sx={{
-                          position: 'relative',
-                          '&:hover .restore-button': {
-                            opacity: 1
-                          }
-                        }}
-                      >
-                        <img
-                          src={entry.imageUrl}
-                          alt={`History ${index + 1}`}
-                          className="w-full h-auto rounded-lg cursor-pointer"
-                          onClick={() => restoreFromHistory(entry)}
-                        />
-                        <Tooltip title="Restore these settings">
-                          <IconButton
-                            className="restore-button"
-                            onClick={() => restoreFromHistory(entry)}
-                            sx={{
-                              position: 'absolute',
-                              right: 4,
-                              top: 4,
-                              opacity: 0,
-                              transition: 'opacity 0.2s',
-                              bgcolor: 'rgba(255,255,255,0.9)',
-                              '&:hover': {
-                                bgcolor: 'rgba(255,255,255,1)'
-                              }
-                            }}
-                            size="small"
-                          >
-                            <RestoreIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    ))}
+                  <div className="flex items-center justify-between mb-3">
+                    <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 'bold' }}>
+                      History
+                    </Typography>
+                    <div className="flex items-center gap-2">
+                      <Tooltip title="Clear history">
+                        <IconButton onClick={clearHistory} size="small">
+                          <RestartAltIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={isHistoryMinimized ? "Expand history" : "Minimize history"}>
+                        <IconButton onClick={toggleHistoryMinimized} size="small">
+                          {isHistoryMinimized ? <FullscreenIcon /> : <FullscreenExitIcon />}
+                        </IconButton>
+                      </Tooltip>
+                    </div>
                   </div>
+                  {!isHistoryMinimized && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {history.map((entry, index) => (
+                        <Box
+                          key={entry.timestamp}
+                          sx={{
+                            position: 'relative',
+                            '&:hover .restore-button': {
+                              opacity: 1
+                            }
+                          }}
+                        >
+                          <img
+                            src={entry.imageUrl}
+                            alt={`History ${index + 1}`}
+                            className="w-full h-auto rounded-lg cursor-pointer"
+                            onClick={() => restoreFromHistory(entry)}
+                          />
+                          <Tooltip title="Restore these settings">
+                            <IconButton
+                              className="restore-button"
+                              onClick={() => restoreFromHistory(entry)}
+                              sx={{
+                                position: 'absolute',
+                                right: 4,
+                                top: 4,
+                                opacity: 0,
+                                transition: 'opacity 0.2s',
+                                bgcolor: 'rgba(255,255,255,0.9)',
+                                '&:hover': {
+                                  bgcolor: 'rgba(255,255,255,1)'
+                                }
+                              }}
+                              size="small"
+                            >
+                              <RestoreIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      ))}
+                    </div>
+                  )}
                 </Paper>
               )}
             </div>

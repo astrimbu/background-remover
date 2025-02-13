@@ -36,8 +36,9 @@ export type ModelType = keyof typeof AVAILABLE_MODELS;
 export interface EditorState {
   currentImage: File | null;
   processedImage: string | null;
-  originalDimensions: { width: number; height: number } | null;  // Track original dimensions
+  originalDimensions: { width: number; height: number } | null;
   history: HistoryEntry[];
+  isHistoryMinimized: boolean;
   settings: ProcessingOptions;
   maximizedView: 'original' | 'processed' | null;
   actions: {
@@ -47,7 +48,9 @@ export interface EditorState {
     addToHistory: (imageUrl: string) => void;
     restoreFromHistory: (entry: HistoryEntry) => void;
     setMaximizedView: (view: 'original' | 'processed' | null) => void;
-    resetSettings: () => void;  // Add a dedicated reset action
+    resetSettings: () => void;
+    toggleHistoryMinimized: () => void;
+    clearHistory: () => void;
   };
 }
 

@@ -9,6 +9,7 @@ export const useEditorStore = create<EditorState>()(
       processedImage: null,
       originalDimensions: null,
       history: [],
+      isHistoryMinimized: false,
       settings: DEFAULT_SETTINGS,
       maximizedView: null,
       actions: {
@@ -63,7 +64,13 @@ export const useEditorStore = create<EditorState>()(
               targetWidth: state.originalDimensions?.width ?? null,
               targetHeight: state.originalDimensions?.height ?? null
             }
-          }))
+          })),
+        toggleHistoryMinimized: () =>
+          set((state) => ({
+            isHistoryMinimized: !state.isHistoryMinimized
+          })),
+        clearHistory: () =>
+          set({ history: [] })
       }
     }),
     { name: 'editor-store' }
