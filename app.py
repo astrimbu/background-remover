@@ -24,7 +24,8 @@ AVAILABLE_MODELS = {
 
 # ComfyUI API settings
 COMFYUI_API = "http://127.0.0.1:8188"
-WORKFLOW_FILE = "workflow_api.json"
+STYLIZE_WORKFLOW_FILE = "stylize_workflow.json"
+GENERATE_WORKFLOW_FILE = "generate_workflow.json"
 BASE_IMAGES_DIR = "base-img"
 
 def fit_to_canvas(image, border_percent):
@@ -76,11 +77,11 @@ def fit_to_canvas(image, border_percent):
 # Initialize with default model
 session = new_session("u2net")
 
-def load_workflow():
+def load_workflow(workflow_file):
     try:
-        with open('workflow_api.json', 'r') as f:
+        with open(workflow_file, 'r') as f:
             workflow = json.load(f)
-            print(f"Loaded workflow from workflow_api.json")
+            print(f"Loaded workflow from {workflow_file}")
             print(f"Workflow contains {len(workflow)} nodes")
             return workflow
     except Exception as e:
@@ -149,6 +150,40 @@ def modify_workflow(workflow, style_image_path=None, base_image=None, prompt=Non
         print(f"Updated IPAdapter node: {workflow_copy['32']}")
     
     print("Workflow modification complete")
+    return workflow_copy
+
+def modify_generate_workflow(workflow, prompt=None, negative_prompt=None, steps=10, batch_size=1):
+    """Modify the generation workflow with the given parameters"""
+    print("Starting generation workflow modification...")
+    workflow_copy = json.loads(json.dumps(workflow))
+    
+    # Add random seed generation
+    if '3' in workflow_copy:
+        random_seed = np.random.randint(np.iinfo(np.int32).max)
+        print(f"Setting random seed: {random_seed}")
+        workflow_copy['3']['inputs']['seed'] = int(random_seed)
+    
+    # Update empty latent image batch size (node 5)
+    if '5' in workflow_copy:
+        print(f"Setting batch size: {batch_size}")
+        workflow_copy['5']['inputs']['batch_size'] = int(batch_size)
+    
+    # Update positive prompt (node 6)
+    if prompt and '6' in workflow_copy:
+        print(f"Setting prompt: {prompt}")
+        workflow_copy['6']['inputs']['text'] = prompt
+    
+    # Update negative prompt (node 7)
+    if negative_prompt and '7' in workflow_copy:
+        print(f"Setting negative prompt: {negative_prompt}")
+        workflow_copy['7']['inputs']['text'] = negative_prompt
+    
+    # Update steps (node 3)
+    if steps and '3' in workflow_copy:
+        print(f"Setting steps: {steps}")
+        workflow_copy['3']['inputs']['steps'] = int(steps)
+    
+    print("Generation workflow modification complete")
     return workflow_copy
 
 @app.route('/')
@@ -325,7 +360,7 @@ def serve_base_image(filename):
 
 @app.route('/generate')
 def generate():
-    workflow = load_workflow()
+    workflow = load_workflow(STYLIZE_WORKFLOW_FILE)
     # Get default prompt from workflow node 6 (CLIPTextEncode)
     default_prompt = (
         workflow.get('6', {})
@@ -361,7 +396,7 @@ def process_comfyui():
             print(f"Saved style image to {style_image_path}")
         
         print("2. Loading workflow...")
-        workflow = load_workflow()
+        workflow = load_workflow(STYLIZE_WORKFLOW_FILE)
         
         print("3. Modifying workflow...")
         modified_workflow = modify_workflow(
@@ -489,6 +524,86 @@ def save_temp_image():
 @app.route('/temp/<path:filename>')
 def serve_temp_file(filename):
     return send_file(Path('temp') / filename)
+
+@app.route('/comfyui-generate', methods=['POST'])
+def generate_comfyui():
+    try:
+        # Load the generation workflow
+        workflow = load_workflow(GENERATE_WORKFLOW_FILE)
+        
+        # Get parameters from request
+        prompt = request.form.get('prompt', '')
+        negative_prompt = request.form.get('negative_prompt', '')
+        batch_size = int(request.form.get('batch_size', 1))
+        steps = int(request.form.get('steps', 10))
+        
+        # Modify workflow with parameters
+        modified_workflow = modify_generate_workflow(
+            workflow,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            steps=steps,
+            batch_size=batch_size
+        )
+        
+        # Queue the workflow
+        response = requests.post(
+            f"{COMFYUI_API}/prompt",
+            json={
+                "prompt": modified_workflow,
+                "client_id": "background-remover"
+            }
+        )
+        
+        if not response.ok:
+            return jsonify({'error': 'Failed to queue workflow'}), 500
+            
+        data = response.json()
+        prompt_id = data.get('prompt_id')
+        if not prompt_id:
+            return jsonify({'error': 'No prompt ID received'}), 500
+            
+        return jsonify({
+            'prompt_id': prompt_id
+        })
+        
+    except Exception as e:
+        print(f"Error in generate_comfyui: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/check-status/<prompt_id>', methods=['GET'])
+def check_status(prompt_id):
+    try:
+        history_response = requests.get(f"{COMFYUI_API}/history")
+        if not history_response.ok:
+            return jsonify({'status': 'pending'})
+            
+        history = history_response.json()
+        if prompt_id not in history:
+            return jsonify({'status': 'pending'})
+            
+        prompt_info = history[prompt_id]
+        
+        # Check if completed
+        if 'outputs' in prompt_info:
+            output_images = []
+            for node_id, node_output in prompt_info['outputs'].items():
+                if 'images' in node_output:
+                    for image in node_output['images']:
+                        image_url = f"{COMFYUI_API}/view?filename={image['filename']}&type=temp"
+                        output_images.append(image_url)
+            
+            if output_images:
+                return jsonify({
+                    'status': 'completed',
+                    'images': output_images
+                })
+        
+        return jsonify({'status': 'pending'})
+        
+    except Exception as e:
+        print(f"Error checking status: {str(e)}")
+        return jsonify({'status': 'pending'})
 
 if __name__ == '__main__':
     app.run(debug=True)

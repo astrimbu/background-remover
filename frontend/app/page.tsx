@@ -3,7 +3,7 @@
 import { useEditorStore } from '@/stores/editorStore';
 import { ImageDropzone } from '@/components/ImageDropzone';
 import { ProcessingControls } from '@/components/ProcessingControls';
-import { Typography, Box, Paper, IconButton, Tooltip } from '@mui/material';
+import { Typography, Box, Paper, IconButton, Tooltip, Button } from '@mui/material';
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import RestoreIcon from '@mui/icons-material/Restore';
@@ -11,6 +11,8 @@ import { BackgroundToggle, BackgroundToggleButton } from '@/components/Backgroun
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import Link from 'next/link';
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 
 type BackgroundType = 'transparent' | 'light' | 'dark';
 
@@ -50,9 +52,20 @@ export default function EditorPage() {
       <input {...getInputProps()} />
       <main className="min-h-screen bg-gray-100">
         <div className="container mx-auto px-4 py-8">
-          <Typography variant="h4" component="h1" sx={{ color: 'text.primary', mb: 4, fontWeight: 'bold' }}>
-            Image Editor
-          </Typography>
+          <div className="flex items-center gap-4 mb-4">
+            <Typography variant="h4" component="h1" sx={{ color: 'text.primary', fontWeight: 'bold' }}>
+              Image Editor
+            </Typography>
+            <Link href="/generate" passHref>
+              <Button
+                variant="outlined"
+                startIcon={<AddPhotoAlternateIcon />}
+                size="small"
+              >
+                Generate Image
+              </Button>
+            </Link>
+          </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left panel - Tools and settings */}
