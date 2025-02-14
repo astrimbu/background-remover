@@ -152,7 +152,7 @@ def modify_workflow(workflow, style_image_path=None, base_image=None, prompt=Non
     print("Workflow modification complete")
     return workflow_copy
 
-def modify_generate_workflow(workflow, prompt=None, negative_prompt=None, steps=10, batch_size=1):
+def modify_generate_workflow(workflow, prompt=None, negative_prompt=None, steps=10, batch_size=1, cfg=4, checkpoint=None, width=800, height=800):
     """Modify the generation workflow with the given parameters"""
     print("Starting generation workflow modification...")
     workflow_copy = json.loads(json.dumps(workflow))
@@ -162,11 +162,23 @@ def modify_generate_workflow(workflow, prompt=None, negative_prompt=None, steps=
         random_seed = np.random.randint(np.iinfo(np.int32).max)
         print(f"Setting random seed: {random_seed}")
         workflow_copy['3']['inputs']['seed'] = int(random_seed)
+        
+        # Update cfg
+        print(f"Setting cfg: {cfg}")
+        workflow_copy['3']['inputs']['cfg'] = float(cfg)
     
-    # Update empty latent image batch size (node 5)
+    # Update empty latent image batch size and dimensions (node 5)
     if '5' in workflow_copy:
         print(f"Setting batch size: {batch_size}")
         workflow_copy['5']['inputs']['batch_size'] = int(batch_size)
+        print(f"Setting dimensions: {width}x{height}")
+        workflow_copy['5']['inputs']['width'] = int(width)
+        workflow_copy['5']['inputs']['height'] = int(height)
+    
+    # Update checkpoint (node 4)
+    if checkpoint and '4' in workflow_copy:
+        print(f"Setting checkpoint: {checkpoint}")
+        workflow_copy['4']['inputs']['ckpt_name'] = checkpoint
     
     # Update positive prompt (node 6)
     if prompt and '6' in workflow_copy:
@@ -540,6 +552,10 @@ def generate_comfyui():
         negative_prompt = request.form.get('negative_prompt', '')
         batch_size = int(request.form.get('batch_size', 1))
         steps = int(request.form.get('steps', 10))
+        cfg = float(request.form.get('cfg', 4))
+        checkpoint = request.form.get('checkpoint', None)
+        width = int(request.form.get('width', 800))
+        height = int(request.form.get('height', 800))
         
         # Modify workflow with parameters
         modified_workflow = modify_generate_workflow(
@@ -547,7 +563,11 @@ def generate_comfyui():
             prompt=prompt,
             negative_prompt=negative_prompt,
             steps=steps,
-            batch_size=batch_size
+            batch_size=batch_size,
+            cfg=cfg,
+            checkpoint=checkpoint,
+            width=width,
+            height=height
         )
         
         # Queue the workflow
@@ -608,6 +628,42 @@ def check_status(prompt_id):
     except Exception as e:
         print(f"Error checking status: {str(e)}")
         return jsonify({'status': 'pending'})
+
+@app.route('/api/checkpoints', methods=['GET'])
+def get_checkpoints():
+    """Get list of available checkpoints from ComfyUI"""
+    try:
+        print("Fetching checkpoints from ComfyUI...")
+        response = requests.get(f"{COMFYUI_API}/object_info")
+        if not response.ok:
+            print(f"Failed to fetch from ComfyUI: {response.status_code}")
+            return jsonify({'error': 'Failed to fetch checkpoints'}), 500
+            
+        data = response.json()
+        
+        # Extract checkpoint names from the CheckpointLoaderSimple class info
+        checkpoints = []
+        for class_name, class_info in data.items():
+            if isinstance(class_info, dict):
+                if class_info.get('name') == 'CheckpointLoaderSimple':
+                    input_info = class_info.get('input', {}).get('required', {}).get('ckpt_name', [])
+                    if isinstance(input_info, list) and len(input_info) > 0 and isinstance(input_info[0], list):
+                        checkpoints = input_info[0]
+                        print(f"Found checkpoints: {checkpoints}")
+                    break
+        
+        if not checkpoints:
+            # If no checkpoints found, use the default one as a fallback
+            checkpoints = ["RealitiesEdgeXLLIGHTNING_TURBOV7.safetensors"]
+            print("No checkpoints found, using default:", checkpoints)
+        
+        return jsonify({
+            'checkpoints': checkpoints
+        })
+        
+    except Exception as e:
+        print(f"Error fetching checkpoints: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

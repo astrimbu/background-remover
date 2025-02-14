@@ -1,4 +1,4 @@
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useState, useEffect } from 'react';
 import {
   TextField,
   Slider,
@@ -8,9 +8,13 @@ import {
   Paper,
   Alert,
   Snackbar,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import { useComfyStore } from '@/stores/comfyStore';
-import { generateImages, saveTempImage } from '@/lib/comfyApi';
+import { generateImages, saveTempImage, fetchCheckpoints } from '@/lib/comfyApi';
 import { useRouter } from 'next/navigation';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 
@@ -18,6 +22,21 @@ export default function ComfySettings() {
   const { settings, isGenerating, actions } = useComfyStore();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [checkpoints, setCheckpoints] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Fetch available checkpoints on component mount
+    const loadCheckpoints = async () => {
+      try {
+        const availableCheckpoints = await fetchCheckpoints();
+        setCheckpoints(availableCheckpoints);
+      } catch (error) {
+        console.error('Failed to fetch checkpoints:', error);
+        setError(error instanceof Error ? error.message : 'Failed to fetch checkpoints');
+      }
+    };
+    loadCheckpoints();
+  }, []);
 
   const handleGenerate = async () => {
     try {
@@ -47,9 +66,26 @@ export default function ComfySettings() {
 
   return (
     <div className="space-y-6 max-w-sm">
-      <Alert severity="info">
-        Enter a prompt to generate an image. Be as descriptive as possible for best results.
-      </Alert>
+      <FormControl fullWidth>
+        <InputLabel>Model Checkpoint</InputLabel>
+        <Select
+          value={settings.checkpoint}
+          label="Model Checkpoint"
+          onChange={(e) => actions.updateSettings({ checkpoint: e.target.value })}
+        >
+          {checkpoints.length > 0 ? (
+            checkpoints.map((checkpoint) => (
+              <MenuItem key={checkpoint} value={checkpoint}>
+                {checkpoint}
+              </MenuItem>
+            ))
+          ) : (
+            <MenuItem value={settings.checkpoint}>
+              {settings.checkpoint}
+            </MenuItem>
+          )}
+        </Select>
+      </FormControl>
 
       {error && (
         <Alert severity="error" onClose={() => setError(null)}>
@@ -62,10 +98,10 @@ export default function ComfySettings() {
           fullWidth
           multiline
           rows={3}
-          label="Generation Prompt"
+          label="Positive Prompt"
           value={settings.prompt}
           onChange={(e) => actions.updateSettings({ prompt: e.target.value })}
-          helperText="Describe the image you want to generate. Press Enter to generate, Shift+Enter for new line"
+          helperText="Describe the image you want to generate"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               if (!e.shiftKey) {
@@ -87,8 +123,10 @@ export default function ComfySettings() {
         />
 
         <div className="space-y-4">
-          <div>
-            <Typography variant="subtitle1" gutterBottom>
+          
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="subtitle1" style={{ minWidth: '100px' }}>
               Batch Size
             </Typography>
             <Slider
@@ -109,8 +147,8 @@ export default function ComfySettings() {
             />
           </div>
 
-          <div>
-            <Typography variant="subtitle1" gutterBottom>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="subtitle1" style={{ minWidth: '100px' }}>
               Steps
             </Typography>
             <Slider
@@ -129,6 +167,62 @@ export default function ComfySettings() {
               ]}
               valueLabelDisplay="auto"
             />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="subtitle1" style={{ minWidth: '100px' }}>
+              CFG
+            </Typography>
+            <Slider
+              value={settings.cfg}
+              onChange={(_, value) => 
+                actions.updateSettings({ cfg: value as number })
+              }
+              min={1}
+              max={20}
+              step={0.5}
+              marks={[
+                { value: 1, label: '1' },
+                { value: 7, label: '7' },
+                { value: 14, label: '14' },
+                { value: 20, label: '20' },
+              ]}
+              valueLabelDisplay="auto"
+            />
+          </div>
+
+          <div>
+            <Typography variant="subtitle1" gutterBottom>
+              Canvas Size
+            </Typography>
+            <div className="grid grid-cols-2 gap-4">
+              <TextField
+                type="number"
+                label="Width"
+                value={settings.width}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value);
+                  if (!isNaN(value) && value > 0) {
+                    actions.updateSettings({ width: value });
+                  }
+                }}
+                inputProps={{ min: 480, max: 1024, step: 64 }}
+                helperText="480-1024 pixels"
+              />
+              <TextField
+                type="number"
+                label="Height"
+                value={settings.height}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value);
+                  if (!isNaN(value) && value > 0) {
+                    actions.updateSettings({ height: value });
+                  }
+                }}
+                inputProps={{ min: 480, max: 1024, step: 64 }}
+                helperText="480-1024 pixels"
+              />
+            </div>
           </div>
         </div>
 

@@ -48,7 +48,10 @@ export async function generateImages(settings: GenerationSettings): Promise<Gene
   formData.append('negative_prompt', settings.negativePrompt);
   formData.append('batch_size', settings.batchSize.toString());
   formData.append('steps', settings.steps.toString());
-  formData.append('cfg', '4');
+  formData.append('cfg', settings.cfg.toString());
+  formData.append('checkpoint', settings.checkpoint);
+  formData.append('width', settings.width.toString());
+  formData.append('height', settings.height.toString());
   formData.append('sampler_name', 'dpmpp_sde');
   formData.append('scheduler', 'normal');
   formData.append('denoise', '1');
@@ -88,4 +91,18 @@ export async function saveTempImage(imageUrl: string): Promise<string> {
   if (!saveResponse.ok) throw new Error('Failed to save temporary image');
   const { tempUrl } = await saveResponse.json();
   return tempUrl;
+}
+
+export async function fetchCheckpoints(): Promise<string[]> {
+  console.log('Fetching checkpoints...');
+  const response = await fetch('/api/checkpoints');
+  console.log('Checkpoints response status:', response.status);
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Failed to fetch checkpoints:', error);
+    throw new Error(`Failed to fetch checkpoints: ${error}`);
+  }
+  const data = await response.json();
+  console.log('Received checkpoints:', data.checkpoints);
+  return data.checkpoints;
 } 
