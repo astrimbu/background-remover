@@ -12,6 +12,7 @@ export const useEditorStore = create<EditorState>()(
       isHistoryMinimized: false,
       settings: DEFAULT_SETTINGS,
       maximizedView: null,
+      shouldProcess: false,
       actions: {
         setCurrentImage: (file) => {
           // When setting a new image, read its dimensions
@@ -26,14 +27,16 @@ export const useEditorStore = create<EditorState>()(
                 ...state.settings,
                 targetWidth: state.settings.targetWidth ?? img.width,
                 targetHeight: state.settings.targetHeight ?? img.height
-              }
+              },
+              shouldProcess: true // Set shouldProcess when setting a new image
             }));
           };
           img.src = URL.createObjectURL(file);
         },
         updateSettings: (settings) => 
           set((state) => ({ 
-            settings: { ...state.settings, ...settings } 
+            settings: { ...state.settings, ...settings },
+            shouldProcess: true // Set shouldProcess when settings change
           })),
         setOriginalDimensions: (dimensions) =>
           set({ originalDimensions: dimensions }),
@@ -46,7 +49,8 @@ export const useEditorStore = create<EditorState>()(
             };
             return {
               processedImage: imageUrl,
-              history: [newEntry, ...state.history].slice(0, 10)  // Keep last 10 entries
+              history: [newEntry, ...state.history].slice(0, 10),  // Keep last 10 entries
+              shouldProcess: false // Reset shouldProcess after processing
             };
           }),
         restoreFromHistory: (entry) =>
@@ -63,7 +67,8 @@ export const useEditorStore = create<EditorState>()(
               // If we have original dimensions, use them for target dimensions
               targetWidth: state.originalDimensions?.width ?? null,
               targetHeight: state.originalDimensions?.height ?? null
-            }
+            },
+            shouldProcess: true // Set shouldProcess when resetting settings
           })),
         toggleHistoryMinimized: () =>
           set((state) => ({

@@ -5,9 +5,31 @@ import ComfySettings from '@/components/ComfySettings';
 import Link from 'next/link';
 import ImageIcon from '@mui/icons-material/Image';
 import { useComfyStore } from '@/stores/comfyStore';
+import { useEditorStore } from '@/stores/editorStore';
+import { useRouter } from 'next/navigation';
 
 export default function GeneratePage() {
   const { generatedImages } = useComfyStore();
+  const { actions: { setCurrentImage, addToHistory } } = useEditorStore();
+  const router = useRouter();
+
+  const handleImageClick = async (imageUrl: string) => {
+    try {
+      // Fetch the image and convert it to a File object
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const file = new File([blob], 'generated-image.png', { type: 'image/png' });
+      
+      // Set the image in the editor store
+      // This will automatically set shouldProcess to true
+      setCurrentImage(file);
+      
+      // Navigate to the editor page
+      router.push('/');
+    } catch (error) {
+      console.error('Error preparing image for editor:', error);
+    }
+  };
   
   return (
     <main className="min-h-screen bg-gray-100">
@@ -51,7 +73,12 @@ export default function GeneratePage() {
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   {generatedImages.map((image, index) => (
-                    <div key={index} className="aspect-square relative flex items-center justify-center">
+                    <div 
+                      key={index} 
+                      className="aspect-square relative flex items-center justify-center"
+                      onClick={() => handleImageClick(image.url)}
+                      title="Click to edit this image"
+                    >
                       <img
                         src={image.url}
                         alt={`Generated ${index + 1}`}

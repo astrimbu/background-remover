@@ -41,13 +41,12 @@ export function ProcessingControls() {
   const currentImage = useEditorStore(state => state.currentImage);
   const processedImage = useEditorStore(state => state.processedImage);
   const originalDimensions = useEditorStore(state => state.originalDimensions);
+  const shouldProcess = useEditorStore(state => state.shouldProcess);
   const { updateSettings, addToHistory, resetSettings } = useEditorStore(state => state.actions);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localSettings, setLocalSettings] = useState(settings);
-  const [shouldProcess, setShouldProcess] = useState(false);
-  const [previousSettings, setPreviousSettings] = useState(settings);
 
   const handleModelChange = useCallback((event: SelectChangeEvent) => {
     const model = event.target.value as keyof typeof AVAILABLE_MODELS;
@@ -68,14 +67,9 @@ export function ProcessingControls() {
     updateSettings({ [name]: value as number });
   }, [updateSettings]);
 
-  // Keep local settings in sync with store settings and detect real changes
+  // Keep local settings in sync with store settings
   useEffect(() => {
     setLocalSettings(settings);
-    // Only set shouldProcess if settings actually changed (not just component mount)
-    if (JSON.stringify(settings) !== JSON.stringify(previousSettings)) {
-      setShouldProcess(true);
-      setPreviousSettings(settings);
-    }
   }, [settings]);
 
   // Process image whenever settings change or image changes
@@ -97,7 +91,6 @@ export function ProcessingControls() {
         setError(error instanceof Error ? error.message : 'Failed to process image');
       } finally {
         setIsProcessing(false);
-        setShouldProcess(false);
       }
     };
 
@@ -105,7 +98,7 @@ export function ProcessingControls() {
     // 1. We have an image AND
     // 2. Either:
     //    a. We don't have a processed image yet (first load)
-    //    b. Settings were explicitly changed (shouldProcess is true)
+    //    b. shouldProcess is true from the store
     if (currentImage && (!processedImage || shouldProcess)) {
       processImage();
     }

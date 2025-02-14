@@ -41,6 +41,7 @@ export interface EditorState {
   isHistoryMinimized: boolean;
   settings: ProcessingOptions;
   maximizedView: 'original' | 'processed' | null;
+  shouldProcess: boolean;
   actions: {
     setCurrentImage: (file: File) => void;
     updateSettings: (settings: Partial<ProcessingOptions>) => void;
