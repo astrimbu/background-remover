@@ -20,6 +20,6 @@ export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
   steps: 5,
   cfg: 4,
   checkpoint: "RealitiesEdgeXLLIGHTNING_TURBOV7.safetensors",
-  width: 800,
-  height: 800
+  width: 1024,
+  height: 1024
 };
