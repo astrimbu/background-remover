@@ -157,13 +157,13 @@ export default function ComfySettings() {
                 actions.updateSettings({ steps: value as number })
               }
               min={5}
-              max={20}
+              max={50}
               step={1}
               marks={[
                 { value: 5, label: '5' },
                 { value: 10, label: '10' },
-                { value: 15, label: '15' },
                 { value: 20, label: '20' },
+                { value: 50, label: '50' },
               ]}
               valueLabelDisplay="auto"
             />
@@ -179,13 +179,12 @@ export default function ComfySettings() {
                 actions.updateSettings({ cfg: value as number })
               }
               min={1}
-              max={20}
+              max={10}
               step={0.5}
               marks={[
                 { value: 1, label: '1' },
-                { value: 7, label: '7' },
-                { value: 14, label: '14' },
-                { value: 20, label: '20' },
+                { value: 5, label: '5' },
+                { value: 10, label: '10' },
               ]}
               valueLabelDisplay="auto"
             />
