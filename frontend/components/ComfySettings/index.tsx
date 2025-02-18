@@ -194,33 +194,85 @@ export default function ComfySettings() {
             <Typography variant="subtitle1" gutterBottom>
               Canvas Size
             </Typography>
-            <div className="grid grid-cols-2 gap-4">
-              <TextField
-                type="number"
-                label="Width"
-                value={settings.width}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value);
-                  if (!isNaN(value) && value > 0) {
-                    actions.updateSettings({ width: value });
-                  }
-                }}
-                inputProps={{ min: 480, max: 1024, step: 64 }}
-                helperText="480-1024 pixels"
-              />
-              <TextField
-                type="number"
-                label="Height"
-                value={settings.height}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value);
-                  if (!isNaN(value) && value > 0) {
-                    actions.updateSettings({ height: value });
-                  }
-                }}
-                inputProps={{ min: 480, max: 1024, step: 64 }}
-                helperText="480-1024 pixels"
-              />
+            <div className="space-y-4">
+              <div className="grid grid-cols-4 gap-2 justify-items-center items-center" style={{ height: '1.5em' }}>
+                {[
+                  { width: 1024, height: 512, label: 'Landscape (2:1)' },
+                  { width: 512, height: 1024, label: 'Portrait (1:2)' },
+                  { width: 1024, height: 1024, label: 'Square (1:1)' },
+                  { width: 512, height: 512, label: 'Square (1:1)' },
+                ].map((preset) => {
+                  const baseSize = 80;
+                  const scale = preset.width > preset.height ? 
+                    { width: baseSize, height: (baseSize * preset.height) / preset.width } :
+                    { width: (baseSize * preset.width) / preset.height, height: baseSize };
+                  
+                  return (
+                    <div
+                      key={`${preset.width}x${preset.height}`}
+                      className="flex justify-center items-center"
+                      style={{
+                        cursor: 'pointer',
+                        padding: '2px',
+                        backgroundColor: settings.width === preset.width && settings.height === preset.height
+                          ? 'rgba(25, 118, 210, 0.12)'
+                          : 'transparent',
+                        borderRadius: '2px',
+                        aspectRatio: '1',
+                        height: '1.5em',
+                      }}
+                      onClick={() => actions.updateSettings({
+                        width: preset.width,
+                        height: preset.height,
+                      })}
+                      title={`${preset.width} x ${preset.height}`}
+                    >
+                      <div
+                        style={{
+                          width: `${scale.width}%`,
+                          height: `${scale.height}%`,
+                          backgroundColor: 'rgba(25, 118, 210, 0.2)',
+                          transition: 'background-color 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(25, 118, 210, 0.3)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(25, 118, 210, 0.2)';
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <TextField
+                  type="number"
+                  label="Width"
+                  value={settings.width}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    if (!isNaN(value) && value >= 512 && value <= 1024) {
+                      actions.updateSettings({ width: value });
+                    }
+                  }}
+                  inputProps={{ min: 512, max: 1024, step: 64 }}
+                  helperText="512-1024 pixels"
+                />
+                <TextField
+                  type="number"
+                  label="Height"
+                  value={settings.height}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    if (!isNaN(value) && value >= 512 && value <= 1024) {
+                      actions.updateSettings({ height: value });
+                    }
+                  }}
+                  inputProps={{ min: 512, max: 1024, step: 64 }}
+                  helperText="512-1024 pixels"
+                />
+              </div>
             </div>
           </div>
         </div>

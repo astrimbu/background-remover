@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useCallback, useEffect } from 'react';
 
 export default function GeneratePage() {
-  const { generatedImages } = useComfyStore();
+  const { generatedImages, settings } = useComfyStore();
   const { actions: { setCurrentImage, addToHistory } } = useEditorStore();
   const router = useRouter();
   const [maximizedImage, setMaximizedImage] = useState<number | null>(null);
@@ -33,8 +33,8 @@ export default function GeneratePage() {
   };
 
   const handleMaximize = useCallback((index: number | null) => {
-    setMaximizedImage(maximizedImage === index ? null : index);
-  }, [maximizedImage]);
+    setMaximizedImage(index);
+  }, []);
 
   const handlePrevImage = useCallback(() => {
     if (maximizedImage === null || generatedImages.length === 0) return;
@@ -63,6 +63,13 @@ export default function GeneratePage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [maximizedImage, handlePrevImage, handleNextImage, handleMaximize]);
+
+  // Auto-maximize when batch size is 1 and there is a generated image
+  useEffect(() => {
+    if (settings.batchSize === 1 && generatedImages.length === 1 && maximizedImage === null) {
+      handleMaximize(0);
+    }
+  }, [generatedImages, settings.batchSize, handleMaximize, maximizedImage]);
   
   return (
     <main className="min-h-screen bg-gray-100">
