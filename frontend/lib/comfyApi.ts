@@ -95,7 +95,7 @@ export async function saveTempImage(imageUrl: string): Promise<string> {
 
 export async function fetchCheckpoints(): Promise<string[]> {
   console.log('Fetching checkpoints...');
-  const response = await fetch('/api/checkpoints');
+  const response = await fetch('/checkpoints');
   console.log('Checkpoints response status:', response.status);
   if (!response.ok) {
     const error = await response.text();

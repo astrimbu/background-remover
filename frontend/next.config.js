@@ -12,12 +12,32 @@ const nextConfig = {
         destination: 'http://localhost:5000/base-img/:path*',
       },
       {
+        source: '/fit-to-canvas',
+        destination: 'http://localhost:5000/fit-to-canvas',
+      },
+      {
+        source: '/remove-background',
+        destination: 'http://localhost:5000/remove-background',
+      },
+      {
+        source: '/models',
+        destination: 'http://localhost:5000/models',
+      },
+      {
+        source: '/switch-model',
+        destination: 'http://localhost:5000/switch-model',
+      },
+      {
         source: '/comfyui-process',
         destination: 'http://localhost:5000/comfyui-process',
       },
       {
         source: '/comfyui-generate',
         destination: 'http://localhost:5000/comfyui-generate',
+      },
+      {
+        source: '/checkpoints',
+        destination: 'http://localhost:5000/checkpoints',
       },
       {
         source: '/check-status/:path*',
@@ -30,11 +50,7 @@ const nextConfig = {
       {
         source: '/temp/:path*',
         destination: 'http://localhost:5000/temp/:path*',
-      },
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:5000/api/:path*',
-      },
+      }
     ];
   },
   // For production static export
@@ -56,11 +72,12 @@ const nextConfig = {
     ],
     unoptimized: process.env.NODE_ENV === 'production'
   },
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb'
-    },
-    responseLimit: '10mb'
+  webpack: (config, { dev, isServer }) => {
+    // Disable source maps in development mode
+    if (dev && !isServer) {
+      config.devtool = 'eval';
+    }
+    return config;
   }
 }
 

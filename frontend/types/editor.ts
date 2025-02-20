@@ -52,6 +52,8 @@ export interface EditorState {
     resetSettings: () => void;
     toggleHistoryMinimized: () => void;
     clearHistory: () => void;
+    triggerBackgroundRemoval: () => void;
+    updateProcessedImage: (imageUrl: string) => void;
   };
 }
 

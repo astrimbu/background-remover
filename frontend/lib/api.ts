@@ -1,12 +1,12 @@
-import axios from 'axios';
 import { ProcessingOptions } from '@/types/editor';
 
-const api = axios.create({
-  baseURL: '/api',
-  headers: {
-    'Content-Type': 'multipart/form-data'
-  }
-});
+interface ImageFittingOptions {
+  borderEnabled: boolean;
+  borderSize: number;
+  targetWidth: number | null;
+  targetHeight: number | null;
+  maintainAspectRatio: boolean;
+}
 
 export const imageApi = {
   removeBackground: async (file: File, options: ProcessingOptions) => {
@@ -28,16 +28,42 @@ export const imageApi = {
     formData.append('settings', JSON.stringify(backendSettings));
     console.log('Sending settings to backend:', backendSettings);  // Debug log
     
-    const response = await api.post('/remove-background', formData, {
-      responseType: 'arraybuffer'
+    const response = await fetch('/remove-background', {
+      method: 'POST',
+      body: formData
     });
-    return response.data;
+    
+    if (!response.ok) {
+      throw new Error('Failed to remove background');
+    }
+    
+    return response.arrayBuffer();
+  },
+  
+  fitImage: async (image: Blob, options: ImageFittingOptions) => {
+    const formData = new FormData();
+    formData.append('image', image);
+    formData.append('border', options.borderSize.toString());
+    
+    const response = await fetch('/fit-to-canvas', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fit image');
+    }
+    
+    return response.arrayBuffer();
   },
   
   // Get available models
   getModels: async () => {
-    const response = await api.get('/models');
-    return response.data;
+    const response = await fetch('/models');
+    if (!response.ok) {
+      throw new Error('Failed to get models');
+    }
+    return response.json();
   },
 
   // Process image with ComfyUI workflow
@@ -47,8 +73,16 @@ export const imageApi = {
     formData.append('workflow_id', workflowId);
     formData.append('params', JSON.stringify(params));
 
-    const response = await api.post('/process-workflow', formData);
-    return response.data;
+    const response = await fetch('/process-workflow', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to process workflow');
+    }
+    
+    return response.json();
   },
 
   // Save processed image
@@ -57,7 +91,15 @@ export const imageApi = {
     formData.append('image', imageData);
     formData.append('filename', filename);
 
-    const response = await api.post('/save-image', formData);
-    return response.data;
+    const response = await fetch('/save-image', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to save image');
+    }
+    
+    return response.json();
   }
 }; 

@@ -1,6 +1,6 @@
 'use client';
 
-import { Container, Paper, Typography, Button, IconButton, Tooltip } from '@mui/material';
+import { Container, Paper, Typography, Button, IconButton, Tooltip, TextField, Grid, FormControl, Select, MenuItem, Stack, AppBar, Toolbar } from '@mui/material';
 import ComfySettings from '@/components/ComfySettings';
 import Link from 'next/link';
 import ImageIcon from '@mui/icons-material/Image';
@@ -13,12 +13,19 @@ import { useComfyStore } from '@/stores/comfyStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useRouter } from 'next/navigation';
 import { useState, useCallback, useEffect } from 'react';
+import { CircularProgress } from '@mui/material';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 
 export default function GeneratePage() {
-  const { generatedImages, settings } = useComfyStore();
+  const { generatedImages, settings, actions, isGenerating, checkpoints } = useComfyStore();
   const { actions: { setCurrentImage, addToHistory } } = useEditorStore();
   const router = useRouter();
   const [maximizedImage, setMaximizedImage] = useState<number | null>(null);
+
+  // Load checkpoints when the page mounts
+  useEffect(() => {
+    actions.loadCheckpoints();
+  }, [actions]);
 
   const handleImageEdit = async (imageUrl: string) => {
     try {
@@ -73,33 +80,261 @@ export default function GeneratePage() {
   
   return (
     <main className="min-h-screen bg-gray-100">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center gap-4 mb-4">
-          <Typography variant="h4" component="h1" sx={{ color: 'text.primary', fontWeight: 'bold' }}>
-            Generate Image
+      {/* Top Bar */}
+      <AppBar position="static" color="default" elevation={0}>
+        <Toolbar variant="dense">
+          <Typography variant="h6" component="h1" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
+            Image Studio
           </Typography>
-          <Link href="/" passHref>
-            <Button
-              variant="outlined"
-              startIcon={<ImageIcon />}
-              size="small"
-            >
-              Image Editor
-            </Button>
-          </Link>
-        </div>
+          <div className="flex gap-2">
+            <Link href="/" passHref>
+              <Button
+                variant="outlined"
+                startIcon={<ImageIcon />}
+                size="small"
+              >
+                Image Editor
+              </Button>
+            </Link>
+          </div>
+        </Toolbar>
+      </AppBar>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:sticky lg:top-8 lg:self-start h-fit">
+      <div className="container mx-auto px-4 py-4">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          {/* Left Column - Prompts */}
+          <div className="lg:col-span-2">
+            <Paper className="p-6 mb-6">
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                placeholder="Describe what you want to see in the image..."
+                value={settings.prompt}
+                onChange={(e) => actions.updateSettings({ prompt: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!isGenerating && settings.prompt.trim()) {
+                      actions.generateImages();
+                    }
+                  }
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: 'success.light',
+                      borderWidth: 1,
+                      opacity: 0.5,
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'success.main',
+                      borderWidth: 2,
+                      opacity: 1,
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'success.main',
+                      borderWidth: 2,
+                      opacity: 1,
+                    },
+                  },
+                  '& .MuiInputBase-root': {
+                    resize: 'vertical',
+                    minHeight: '100px',
+                  },
+                }}
+              />
+            </Paper>
+
+            <Paper className="p-6 mb-6">
+              <TextField
+                fullWidth
+                multiline
+                rows={1}
+                placeholder="Describe what you don't want to see in the image..."
+                value={settings.negativePrompt}
+                onChange={(e) => actions.updateSettings({ negativePrompt: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: 'error.light',
+                      borderWidth: 1,
+                      opacity: 0.5,
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'error.main',
+                      borderWidth: 2,
+                      opacity: 1,
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'error.main',
+                      borderWidth: 2,
+                      opacity: 1,
+                    },
+                  },
+                  '& .MuiInputBase-root': {
+                    resize: 'vertical',
+                    minHeight: '56px',
+                  },
+                }}
+              />
+            </Paper>
+
             <Paper className="p-6">
-              <Typography variant="h6" component="h2" sx={{ color: 'text.primary', mb: 3, fontWeight: 'bold' }}>
-                Processing Options
+              <Grid container spacing={3}>
+                {/* Model Selection */}
+                <Grid item xs={12}>
+                  <FormControl fullWidth size="small">
+                    <Typography variant="caption" sx={{ mb: 0.5, color: 'text.secondary', fontWeight: 500 }}>
+                      Model Checkpoint
+                    </Typography>
+                    <Select
+                      value={settings.checkpoint}
+                      onChange={(e) => actions.updateSettings({ checkpoint: e.target.value })}
+                      disabled={isGenerating}
+                      size="small"
+                      sx={{ bgcolor: 'background.paper' }}
+                    >
+                      {checkpoints.map((checkpoint) => (
+                        <MenuItem key={checkpoint} value={checkpoint}>
+                          {checkpoint.replace(/\.[^/.]+$/, "")}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                {/* Canvas Size */}
+                <Grid item xs={12}>
+                  <Typography variant="caption" sx={{ mb: 0.5, color: 'text.secondary', fontWeight: 500, display: 'block' }}>
+                    Canvas Size
+                  </Typography>
+                  <Stack direction="row" spacing={1}>
+                    <TextField
+                      label="W"
+                      type="number"
+                      value={settings.width}
+                      onChange={(e) => actions.updateSettings({ width: Number(e.target.value) })}
+                      disabled={isGenerating}
+                      size="small"
+                      inputProps={{ min: 512, max: 1024, step: 64 }}
+                      sx={{ 
+                        width: '100%',
+                        '& .MuiOutlinedInput-root': {
+                          bgcolor: 'background.paper',
+                        }
+                      }}
+                    />
+                    <TextField
+                      label="H"
+                      type="number"
+                      value={settings.height}
+                      onChange={(e) => actions.updateSettings({ height: Number(e.target.value) })}
+                      disabled={isGenerating}
+                      size="small"
+                      inputProps={{ min: 512, max: 1024, step: 64 }}
+                      sx={{ 
+                        width: '100%',
+                        '& .MuiOutlinedInput-root': {
+                          bgcolor: 'background.paper',
+                        }
+                      }}
+                    />
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                    512-1024 pixels
+                  </Typography>
+                </Grid>
+
+                {/* Generation Controls */}
+                <Grid item xs={12}>
+                  <Typography variant="caption" sx={{ mb: 2, color: 'text.secondary', fontWeight: 500, display: 'block' }}>
+                    Generation Controls
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={4}>
+                      <TextField
+                        label="Batch Size"
+                        type="number"
+                        value={settings.batchSize}
+                        onChange={(e) => actions.updateSettings({ batchSize: Number(e.target.value) })}
+                        disabled={isGenerating}
+                        size="small"
+                        inputProps={{ min: 1, max: 4, step: 1 }}
+                        sx={{ 
+                          width: '100%',
+                          '& .MuiOutlinedInput-root': {
+                            bgcolor: 'background.paper',
+                          }
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField
+                        label="Steps"
+                        type="number"
+                        value={settings.steps}
+                        onChange={(e) => actions.updateSettings({ steps: Number(e.target.value) })}
+                        disabled={isGenerating}
+                        size="small"
+                        inputProps={{ min: 5, max: 50, step: 5 }}
+                        sx={{ 
+                          width: '100%',
+                          '& .MuiOutlinedInput-root': {
+                            bgcolor: 'background.paper',
+                          }
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField
+                        label="CFG Scale"
+                        type="number"
+                        value={settings.cfg}
+                        onChange={(e) => actions.updateSettings({ cfg: Number(e.target.value) })}
+                        disabled={isGenerating}
+                        size="small"
+                        inputProps={{ min: 1, max: 10, step: 0.5 }}
+                        sx={{ 
+                          width: '100%',
+                          '& .MuiOutlinedInput-root': {
+                            bgcolor: 'background.paper',
+                          }
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', fontSize: '0.7rem' }}>
+                    Batch: 1-4 • Steps: 5-50 • CFG: 1-10
               </Typography>
-              <ComfySettings />
+                </Grid>
+
+                {/* Generate Button */}
+                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    onClick={() => {
+                      if (settings.prompt.trim()) {
+                        actions.generateImages();
+                      }
+                    }}
+                    disabled={isGenerating || !settings.prompt.trim()}
+                    startIcon={isGenerating ? <CircularProgress size={20} /> : <AutoFixHighIcon />}
+                    sx={{ 
+                      width: '100%',
+                    }}
+                  >
+                    {isGenerating ? 'Generating...' : 'Generate'}
+                  </Button>
+                </Grid>
+              </Grid>
             </Paper>
           </div>
 
-          <div className="lg:col-span-2">
+          {/* Right Column - Generated Images */}
+          <div className="lg:col-span-3">
             <Paper className="p-6">
               <Typography variant="h6" component="h2" sx={{ color: 'text.primary', mb: 3, fontWeight: 'bold' }}>
                 Generated Images
@@ -217,7 +452,7 @@ export default function GeneratePage() {
                     generatedImages.map((image, index) => (
                       <div 
                         key={index} 
-                        className="aspect-square relative group flex items-center justify-center"
+                        className="aspect-square relative group flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden"
                       >
                         <div className="absolute top-2 right-2 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Tooltip title="Edit in Image Editor">

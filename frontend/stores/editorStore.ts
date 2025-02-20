@@ -28,15 +28,15 @@ export const useEditorStore = create<EditorState>()(
                 targetWidth: state.settings.targetWidth ?? img.width,
                 targetHeight: state.settings.targetHeight ?? img.height
               },
-              shouldProcess: true // Set shouldProcess when setting a new image
+              // Clear processed image when new image is uploaded
+              processedImage: null
             }));
           };
           img.src = URL.createObjectURL(file);
         },
         updateSettings: (settings) => 
           set((state) => ({ 
-            settings: { ...state.settings, ...settings },
-            shouldProcess: true // Set shouldProcess when settings change
+            settings: { ...state.settings, ...settings }
           })),
         setOriginalDimensions: (dimensions) =>
           set({ originalDimensions: dimensions }),
@@ -50,7 +50,6 @@ export const useEditorStore = create<EditorState>()(
             return {
               processedImage: imageUrl,
               history: [newEntry, ...state.history].slice(0, 10),  // Keep last 10 entries
-              shouldProcess: false // Reset shouldProcess after processing
             };
           }),
         restoreFromHistory: (entry) =>
@@ -64,18 +63,32 @@ export const useEditorStore = create<EditorState>()(
           set((state) => ({
             settings: {
               ...DEFAULT_SETTINGS,
-              // If we have original dimensions, use them for target dimensions
               targetWidth: state.originalDimensions?.width ?? null,
               targetHeight: state.originalDimensions?.height ?? null
-            },
-            shouldProcess: true // Set shouldProcess when resetting settings
+            }
           })),
         toggleHistoryMinimized: () =>
           set((state) => ({
             isHistoryMinimized: !state.isHistoryMinimized
           })),
         clearHistory: () =>
-          set({ history: [] })
+          set({ history: [] }),
+        // Action to trigger background removal
+        triggerBackgroundRemoval: () =>
+          set({ shouldProcess: true }),
+        // Action to update processed image directly (for non-background-removal operations)
+        updateProcessedImage: (imageUrl: string) =>
+          set((state) => {
+            const newEntry: HistoryEntry = {
+              imageUrl,
+              settings: { ...state.settings },
+              timestamp: Date.now()
+            };
+            return {
+              processedImage: imageUrl,
+              history: [newEntry, ...state.history].slice(0, 10)
+            };
+          })
       }
     }),
     { name: 'editor-store' }

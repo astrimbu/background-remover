@@ -212,7 +212,7 @@ def switch_model():
     except Exception as e:
         return {'status': 'error', 'message': str(e)}, 500
 
-@app.route('/api/models', methods=['GET'])
+@app.route('/models', methods=['GET'])
 def get_models():
     return jsonify(AVAILABLE_MODELS)
 
@@ -273,7 +273,7 @@ def process_image(image, settings):
     
     return output
 
-@app.route('/api/remove-background', methods=['POST'])
+@app.route('/remove-background', methods=['POST'])
 def remove_background():
     try:
         # Get image file and settings from request
@@ -305,8 +305,11 @@ def remove_background():
 @app.route('/fit-to-canvas', methods=['POST'])
 def fit_image_to_canvas():
     try:
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image provided'}), 400
+            
         file = request.files['image']
-        border_percent = int(request.form.get('border', 0))  # Default to 0 if not specified
+        border_percent = int(request.form.get('border', '10'))  # Default to 10 if not specified
         
         # Open and fit image to canvas
         img = Image.open(file)
@@ -319,13 +322,11 @@ def fit_image_to_canvas():
         
         return send_file(
             img_byte_arr,
-            mimetype='image/png',
-            as_attachment=True,
-            download_name='fitted.png'
+            mimetype='image/png'
         )
     except Exception as e:
         print(f"Error fitting image to canvas: {str(e)}")
-        return f'Error fitting image to canvas: {str(e)}', 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/resize-image', methods=['POST'])
 def resize_image():
@@ -629,7 +630,7 @@ def check_status(prompt_id):
         print(f"Error checking status: {str(e)}")
         return jsonify({'status': 'pending'})
 
-@app.route('/api/checkpoints', methods=['GET'])
+@app.route('/checkpoints', methods=['GET'])
 def get_checkpoints():
     """Get list of available checkpoints from ComfyUI"""
     try:
