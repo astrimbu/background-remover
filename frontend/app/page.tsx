@@ -11,6 +11,7 @@ import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import BrushIcon from '@mui/icons-material/Brush';
 import SaveIcon from '@mui/icons-material/Save';
 import Link from 'next/link';
+import { ImageCanvas } from '@/components/ImageCanvas';
 
 type BackgroundType = 'transparent' | 'light' | 'dark';
 
@@ -18,6 +19,7 @@ export default function EditorPage() {
   const { currentImage, processedImage } = useEditorStore();
   const { setCurrentImage } = useEditorStore(state => state.actions);
   const [background, setBackground] = useState<BackgroundType>('transparent');
+  const [zoomControls, setZoomControls] = useState<React.ReactNode>(null);
   
   const handleToggle = useCallback(() => {
     const sequence: BackgroundType[] = ['transparent', 'light', 'dark'];
@@ -78,26 +80,27 @@ export default function EditorPage() {
           <div className="flex-1 flex relative">
             <BackgroundToggle background={background} className="w-full">
               {/* Canvas Controls */}
-              <div className="absolute top-2 right-2 z-10">
+              <div className="absolute top-2 right-2 z-10 flex items-center">
+                {zoomControls}
                 <BackgroundToggleButton 
                   onClick={handleToggle} 
                   background={background}
                 />
               </div>
               
-              <div className="flex items-center justify-center p-8 w-full h-full">
+              <div className="flex items-center justify-center w-full h-full">
                 {currentImage ? (
                   processedImage ? (
-                    <img 
-                      src={processedImage}
-                      alt="Processed image"
-                      className="max-w-full max-h-[calc(100vh-120px)] object-contain"
+                    <ImageCanvas 
+                      imageUrl={processedImage}
+                      className="max-w-full"
+                      onRenderControls={setZoomControls}
                     />
                   ) : (
-                    <img 
-                      src={URL.createObjectURL(currentImage)}
-                      alt="Original image"
-                      className="max-w-full max-h-[calc(100vh-120px)] object-contain"
+                    <ImageCanvas 
+                      imageUrl={URL.createObjectURL(currentImage)}
+                      className="max-w-full"
+                      onRenderControls={setZoomControls}
                     />
                   )
                 ) : (

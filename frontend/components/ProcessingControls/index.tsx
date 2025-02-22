@@ -53,38 +53,107 @@ export function ProcessingControls() {
   const processedImage = useEditorStore(state => state.processedImage);
   const originalDimensions = useEditorStore(state => state.originalDimensions);
   const shouldProcess = useEditorStore(state => state.shouldProcess);
-  const { updateSettings, addToHistory, resetSettings, triggerBackgroundRemoval, updateProcessedImage } = useEditorStore(state => state.actions);
+  const { updateSettings, addToHistory, resetSettings, triggerBackgroundRemoval, updateProcessedImage, resetProcessingState } = useEditorStore(state => state.actions);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localSettings, setLocalSettings] = useState(settings);
-  const [openSection, setOpenSection] = useState<'background' | 'border' | 'resize' | null>(null);
+  const [openSection, setOpenSection] = useState<'background' | 'border' | 'resize' | 'padding' | null>(null);
   const [debouncedDimensions, setDebouncedDimensions] = useState({
     width: settings.targetWidth,
     height: settings.targetHeight
   });
+  const [originalProcessedImage, setOriginalProcessedImage] = useState<string | null>(null);
 
-  const handleModelChange = useCallback((event: SelectChangeEvent) => {
-    const model = event.target.value as keyof typeof AVAILABLE_MODELS;
-    updateSettings({ model });
-  }, [updateSettings]);
+  // Handle image fitting operations
+  const handleImageFitting = useCallback(async (sourceImageUrl: string) => {
+    if (!sourceImageUrl) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const response = await fetch(sourceImageUrl);
+      const imageBlob = await response.blob();
+      const result = await imageApi.fitImage(imageBlob, {
+        paddingEnabled: settings.paddingEnabled,
+        paddingSize: settings.paddingSize,
+        targetWidth: settings.targetWidth,
+        targetHeight: settings.targetHeight,
+        maintainAspectRatio: settings.maintainAspectRatio
+      });
+      const imageUrl = URL.createObjectURL(new Blob([result], { type: 'image/png' }));
+      updateProcessedImage(imageUrl);
+    } catch (error) {
+      console.error('Error fitting image:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fit image');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [settings, updateProcessedImage, setIsProcessing, setError]);
+
+  // Add debounced padding update function
+  const debouncedPaddingUpdate = useCallback(
+    debounce(async (paddingSize: number) => {
+      if (!currentImage) return;
+      
+      try {
+        // Always use the original image (either current image or background-removed image)
+        const imageBlob = settings.backgroundRemoved && originalProcessedImage ? 
+          await fetch(originalProcessedImage).then(r => r.blob()) : 
+          currentImage.slice();
+
+        const result = await imageApi.fitImage(imageBlob, {
+          paddingEnabled: settings.paddingEnabled,
+          paddingSize: paddingSize,
+          targetWidth: settings.targetWidth,
+          targetHeight: settings.targetHeight,
+          maintainAspectRatio: settings.maintainAspectRatio
+        });
+        const imageUrl = URL.createObjectURL(new Blob([result], { type: 'image/png' }));
+        updateProcessedImage(imageUrl);
+      } catch (error) {
+        console.error('Error updating padding:', error);
+        setError(error instanceof Error ? error.message : 'Failed to update padding');
+      }
+    }, 100),
+    [currentImage, originalProcessedImage, settings, updateProcessedImage]
+  );
 
   const handleSliderChange = useCallback((name: keyof typeof settings) => (_: Event, value: number | number[]) => {
     setLocalSettings(prev => ({
       ...prev,
       [name]: value as number
     }));
-  }, []);
+    
+    // Don't trigger immediate updates for padding size changes
+    if (name !== 'paddingSize') {
+      updateSettings({ [name]: value as number });
+    }
+  }, [updateSettings]);
 
   const handleSliderChangeCommitted = useCallback((name: keyof typeof settings) => (_: Event | React.SyntheticEvent<Element, Event>, value: number | number[]) => {
     console.log(`Slider ${name} committed to:`, value);
     updateSettings({ [name]: value as number });
     
-    // If this is a fitting setting and we have a processed image, apply the changes
-    if ((name === 'borderSize' || name === 'targetWidth' || name === 'targetHeight') && processedImage) {
-      handleImageFitting();
+    // For padding size, trigger the update on commit
+    if (name === 'paddingSize' && settings.paddingEnabled) {
+      debouncedPaddingUpdate(value as number);
     }
-  }, [updateSettings, processedImage]);
+    // If this is a background removal setting and background is removed, trigger reprocessing
+    else if ((name === 'foregroundThreshold' || name === 'erodeSize') && settings.backgroundRemoved) {
+      triggerBackgroundRemoval();
+    }
+  }, [updateSettings, settings.backgroundRemoved, settings.paddingEnabled, debouncedPaddingUpdate, triggerBackgroundRemoval]);
+
+  const handleModelChange = useCallback((event: SelectChangeEvent) => {
+    const model = event.target.value as keyof typeof AVAILABLE_MODELS;
+    updateSettings({ model });
+    // If background is currently removed, trigger reprocessing
+    if (settings.backgroundRemoved) {
+      triggerBackgroundRemoval();
+    }
+  }, [updateSettings, settings.backgroundRemoved, triggerBackgroundRemoval]);
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -137,57 +206,55 @@ export function ProcessingControls() {
         const response = await imageApi.removeBackground(currentImage, settings);
         const blob = new Blob([response], { type: 'image/png' });
         const imageUrl = URL.createObjectURL(blob);
+        setOriginalProcessedImage(imageUrl); // Store the original processed image
+        
+        // If padding is enabled, apply it to the newly processed image
+        if (settings.paddingEnabled && settings.paddingSize > 0) {
+          const paddedResult = await imageApi.fitImage(blob, {
+            paddingEnabled: true,
+            paddingSize: settings.paddingSize,
+            targetWidth: settings.targetWidth,
+            targetHeight: settings.targetHeight,
+            maintainAspectRatio: settings.maintainAspectRatio
+          });
+          const paddedImageUrl = URL.createObjectURL(new Blob([paddedResult], { type: 'image/png' }));
+          updateProcessedImage(paddedImageUrl);
+        } else {
+          updateProcessedImage(imageUrl);
+        }
+        
         addToHistory(imageUrl);
+        // Ensure the backgroundRemoved state is set to true after successful processing
+        updateSettings({ backgroundRemoved: true });
       } catch (error) {
         console.error('Error processing image:', error);
         setError(error instanceof Error ? error.message : 'Failed to process image');
+        // Reset the backgroundRemoved state if processing fails
+        updateSettings({ backgroundRemoved: false });
       } finally {
         setIsProcessing(false);
+        resetProcessingState();
       }
     };
 
     if (currentImage && shouldProcess) {
       processImage();
     }
-  }, [currentImage, settings, addToHistory, shouldProcess]);
-
-  // Handle image fitting operations
-  const handleImageFitting = useCallback(async () => {
-    if (!processedImage) return;
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      const response = await fetch(processedImage);
-      const imageBlob = await response.blob();
-      const result = await imageApi.fitImage(imageBlob, {
-        borderEnabled: settings.borderEnabled,
-        borderSize: settings.borderSize,
-        targetWidth: settings.targetWidth,
-        targetHeight: settings.targetHeight,
-        maintainAspectRatio: settings.maintainAspectRatio
-      });
-      const imageUrl = URL.createObjectURL(new Blob([result], { type: 'image/png' }));
-      updateProcessedImage(imageUrl);
-    } catch (error) {
-      console.error('Error fitting image:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fit image');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [processedImage, settings, updateProcessedImage]);
+  }, [currentImage, settings, addToHistory, shouldProcess, updateSettings]);
 
   const handleSave = useCallback(async () => {
-    if (!processedImage) return;
+    if (!processedImage && !currentImage) return;
 
     try {
-      const response = await fetch(processedImage);
+      const imageToSave = processedImage || (currentImage ? URL.createObjectURL(currentImage) : null);
+      if (!imageToSave) return;
+
+      const response = await fetch(imageToSave);
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = 'processed-image.png';
+      link.download = 'image.png';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -196,21 +263,89 @@ export function ProcessingControls() {
       console.error('Error saving image:', error);
       setError('Failed to save image');
     }
-  }, [processedImage]);
+  }, [processedImage, currentImage]);
 
   const handleResetEdgeSettings = useCallback(() => {
+    // Only trigger reprocessing if the settings actually changed
+    const settingsChanged = 
+      settings.foregroundThreshold !== DEFAULT_SETTINGS.foregroundThreshold ||
+      settings.erodeSize !== DEFAULT_SETTINGS.erodeSize;
+
     updateSettings({
       foregroundThreshold: DEFAULT_SETTINGS.foregroundThreshold,
       erodeSize: DEFAULT_SETTINGS.erodeSize
     });
-  }, [updateSettings]);
 
-  const handleBorderToggle = useCallback(() => {
-    updateSettings({ borderEnabled: !settings.borderEnabled });
-    if (processedImage) {
-      handleImageFitting();
+    // If background is removed and settings changed, trigger reprocessing
+    if (settings.backgroundRemoved && settingsChanged) {
+      triggerBackgroundRemoval();
     }
-  }, [settings.borderEnabled, updateSettings, processedImage, handleImageFitting]);
+  }, [settings.backgroundRemoved, settings.foregroundThreshold, settings.erodeSize, updateSettings, triggerBackgroundRemoval]);
+
+  const handlePaddingToggle = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newPaddingEnabled = !settings.paddingEnabled;
+    
+    if (!currentImage) return;
+    
+    // Apply or remove padding based on the new state
+    if (newPaddingEnabled) {
+      // When enabling padding, start with 25% padding and apply immediately
+      const initialPaddingSize = 25;
+      setIsProcessing(true);
+      
+      try {
+        // Always use the original image (either current image or background-removed image)
+        const imageBlob = settings.backgroundRemoved && originalProcessedImage ? 
+          await fetch(originalProcessedImage).then(r => r.blob()) : 
+          currentImage.slice();
+
+        const result = await imageApi.fitImage(imageBlob, {
+          paddingEnabled: true,
+          paddingSize: initialPaddingSize,
+          targetWidth: settings.targetWidth,
+          targetHeight: settings.targetHeight,
+          maintainAspectRatio: settings.maintainAspectRatio
+        });
+        const imageUrl = URL.createObjectURL(new Blob([result], { type: 'image/png' }));
+        
+        // Update all the states after successful processing
+        updateSettings({ 
+          paddingEnabled: true,
+          paddingSize: initialPaddingSize 
+        });
+        setLocalSettings(prev => ({ 
+          ...prev, 
+          paddingEnabled: true,
+          paddingSize: initialPaddingSize 
+        }));
+        updateProcessedImage(imageUrl);
+      } catch (error) {
+        console.error('Error applying padding:', error);
+        setError(error instanceof Error ? error.message : 'Failed to apply padding');
+      } finally {
+        setIsProcessing(false);
+      }
+    } else {
+      // If disabling padding, restore the original image
+      updateSettings({ paddingEnabled: false, paddingSize: 0 });
+      setLocalSettings(prev => ({ ...prev, paddingEnabled: false, paddingSize: 0 }));
+      const imageUrl = settings.backgroundRemoved && originalProcessedImage ? 
+        originalProcessedImage : 
+        URL.createObjectURL(currentImage);
+      updateProcessedImage(imageUrl);
+    }
+  }, [
+    settings.paddingEnabled,
+    settings.backgroundRemoved,
+    settings.targetWidth,
+    settings.targetHeight,
+    settings.maintainAspectRatio,
+    currentImage,
+    originalProcessedImage,
+    updateSettings,
+    updateProcessedImage
+  ]);
 
   const handleAspectRatioToggle = useCallback(() => {
     updateSettings({ maintainAspectRatio: !settings.maintainAspectRatio });
@@ -230,6 +365,22 @@ export function ProcessingControls() {
       });
     }
   }, [debouncedDimensions, debouncedUpdateDimensions]);
+
+  const handleBackgroundToggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (settings.backgroundRemoved) {
+      // If background is removed, restore original image
+      if (currentImage) {
+        const imageUrl = URL.createObjectURL(currentImage);
+        updateProcessedImage(imageUrl);
+        updateSettings({ backgroundRemoved: false });
+      }
+    } else {
+      // If background is not removed, trigger removal
+      updateSettings({ backgroundRemoved: true });
+      triggerBackgroundRemoval();
+    }
+  }, [currentImage, settings.backgroundRemoved, triggerBackgroundRemoval, updateProcessedImage, updateSettings]);
 
   return (
     <List component="nav" sx={{ p: 0 }}>
@@ -254,14 +405,11 @@ export function ProcessingControls() {
           secondaryTypographyProps={{ component: 'div' }}
           secondary={
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-              <Tooltip title="Remove Background">
+              <Tooltip title={settings.backgroundRemoved ? "Restore Background" : "Remove Background"}>
                 <IconButton
                   size="small"
-                  color="primary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    triggerBackgroundRemoval();
-                  }}
+                  color={settings.backgroundRemoved ? "primary" : "default"}
+                  onClick={handleBackgroundToggle}
                   disabled={!currentImage || isProcessing}
                 >
                   {isProcessing ? <CircularProgress size={20} /> : <ContentCutIcon />}
@@ -273,7 +421,7 @@ export function ProcessingControls() {
                 </Typography>
               ) : (
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Click to remove background
+                  {settings.backgroundRemoved ? "Click to restore background" : "Click to remove background"}
                 </Typography>
               )}
             </Stack>
@@ -344,23 +492,23 @@ export function ProcessingControls() {
       {/* Border Section */}
       <ListItem 
         onClick={() => {
-          if (settings.borderEnabled) {
-            setOpenSection(openSection === 'border' ? null : 'border');
+          if (settings.paddingEnabled) {
+            setOpenSection(openSection === 'padding' ? null : 'padding');
           }
         }}
         sx={{ 
           borderBottom: 1, 
           borderColor: 'divider', 
-          cursor: settings.borderEnabled ? 'pointer' : 'default',
+          cursor: settings.paddingEnabled ? 'pointer' : 'default',
           '&:hover': {
-            bgcolor: settings.borderEnabled ? 'rgba(0, 0, 0, 0.04)' : 'transparent'
+            bgcolor: settings.paddingEnabled ? 'rgba(0, 0, 0, 0.04)' : 'transparent'
           }
         }}
       >
         <ListItemText 
           primary={
             <Typography variant="subtitle1" sx={{ fontWeight: 500, color: 'text.primary' }}>
-              Border
+              Padding
             </Typography>
           }
           secondaryTypographyProps={{ component: 'div' }}
@@ -368,38 +516,43 @@ export function ProcessingControls() {
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
               <IconButton 
                 size="small" 
-                color={settings.borderEnabled ? "primary" : "default"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleBorderToggle();
-                }}
+                color={settings.paddingEnabled ? "primary" : "default"}
+                onClick={handlePaddingToggle}
               >
                 <BorderAllIcon />
               </IconButton>
-              {!settings.borderEnabled && (
+              {!settings.paddingEnabled && (
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Click icon to enable border
+                  Click icon to enable padding
                 </Typography>
               )}
             </Stack>
           }
         />
-        {settings.borderEnabled && (openSection === 'border' ? <ExpandLess /> : <ExpandMore />)}
+        {settings.paddingEnabled && (openSection === 'padding' ? <ExpandLess /> : <ExpandMore />)}
       </ListItem>
-      {settings.borderEnabled && (
-        <Collapse in={openSection === 'border'} timeout="auto" unmountOnExit>
+      {settings.paddingEnabled && (
+        <Collapse in={openSection === 'padding'} timeout="auto" unmountOnExit>
           <Paper elevation={0} sx={{ mx: 2, my: 1, p: 2, bgcolor: 'background.paper' }}>
             <Stack spacing={2}>
               <Box>
                 <Typography variant="caption" sx={{ mb: 1, color: 'text.primary', display: 'block' }}>
-                  Border Size (%)
+                  Padding Size (%)
                 </Typography>
                 <Slider
-                  value={localSettings.borderSize}
-                  onChange={handleSliderChange('borderSize')}
-                  onChangeCommitted={handleSliderChangeCommitted('borderSize')}
+                  value={localSettings.paddingSize}
+                  onChange={handleSliderChange('paddingSize')}
+                  onChangeCommitted={handleSliderChangeCommitted('paddingSize')}
                   min={0}
                   max={50}
+                  step={1}
+                  marks={[
+                    { value: 0, label: 'None' },
+                    { value: 25, label: '25%' },
+                    { value: 50, label: '50%' }
+                  ]}
+                  valueLabelDisplay="auto"
+                  valueLabelFormat={(value) => `${value}%`}
                   disabled={isProcessing}
                   size="small"
                 />
@@ -498,45 +651,44 @@ export function ProcessingControls() {
       </Collapse>
 
       {/* Save Button */}
-      {processedImage && (
-        <ListItem 
-          onClick={handleSave}
-          sx={{ 
-            borderBottom: 1, 
-            borderColor: 'divider', 
-            cursor: 'pointer',
-            '&:hover': {
-              bgcolor: 'rgba(0, 0, 0, 0.04)'
-            }
-          }}
-        >
-          <ListItemText 
-            primary={
-              <Typography variant="subtitle1" sx={{ fontWeight: 500, color: 'text.primary' }}>
-                Save Image
+      <ListItem 
+        onClick={currentImage || processedImage ? handleSave : undefined}
+        sx={{ 
+          borderBottom: 1, 
+          borderColor: 'divider', 
+          cursor: (currentImage || processedImage) ? 'pointer' : 'default',
+          '&:hover': {
+            bgcolor: (currentImage || processedImage) ? 'rgba(0, 0, 0, 0.04)' : 'transparent'
+          }
+        }}
+      >
+        <ListItemText 
+          primary={
+            <Typography variant="subtitle1" sx={{ fontWeight: 500, color: 'text.primary' }}>
+              Save Image
+            </Typography>
+          }
+          secondaryTypographyProps={{ component: 'div' }}
+          secondary={
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+              <IconButton
+                size="small"
+                color="primary"
+                disabled={!currentImage && !processedImage}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSave();
+                }}
+              >
+                <SaveIcon />
+              </IconButton>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {!currentImage ? 'Upload an image first' : 'Save image'}
               </Typography>
-            }
-            secondaryTypographyProps={{ component: 'div' }}
-            secondary={
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-                <IconButton
-                  size="small"
-                  color="primary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSave();
-                  }}
-                >
-                  <SaveIcon />
-                </IconButton>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Save processed image
-                </Typography>
-              </Stack>
-            }
-          />
-        </ListItem>
-      )}
+            </Stack>
+          }
+        />
+      </ListItem>
 
       {/* Error Message */}
       <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>

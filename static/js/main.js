@@ -23,16 +23,22 @@ class App {
     }
 
     async handleFile(file) {
+        // Reset state before processing new image
+        this.backgroundToggle.resetState();
+        
+        // Set and show the new image
         this.imageProcessor.setCurrentFile(file);
         this.imageProcessor.showOriginalPreview(file);
+        
         // Only process automatically if the file wasn't from the generator
         if (!file.name.startsWith('generated')) {
             await this.processCurrentImage();
         } else {
-            // For generated images, just show them in the result view without processing
+            // For generated images, show them in the result view without processing
             const reader = new FileReader();
             reader.onloadend = () => {
                 const blob = new Blob([reader.result], { type: file.type });
+                // Ensure controls are in initial state for generated images
                 this.backgroundToggle.updateResultView(blob, true);
             };
             reader.readAsArrayBuffer(file);
@@ -44,7 +50,23 @@ class App {
         const processedImageBlob = await this.imageProcessor.processImage(formData);
         
         if (processedImageBlob) {
+            // Update the result view first
             this.backgroundToggle.updateResultView(processedImageBlob, false);
+            
+            // Then enable controls
+            const toggleBtn = document.getElementById('toggleBackground');
+            if (toggleBtn) toggleBtn.disabled = false;
+            
+            const borderInput = document.getElementById('borderSize');
+            const presetSelect = document.getElementById('sizePreset');
+            const resizeBtn = document.querySelector('.resize-button');
+            
+            if (borderInput) {
+                borderInput.disabled = false;
+                borderInput.classList.remove('active');  // Ensure it starts inactive
+            }
+            if (presetSelect) presetSelect.disabled = false;
+            if (resizeBtn) resizeBtn.disabled = false;
         }
     }
 

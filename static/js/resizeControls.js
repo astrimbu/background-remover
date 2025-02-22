@@ -1,10 +1,55 @@
 export class ResizeControls {
     constructor(onResize) {
         this.onResize = onResize;
-        this.borderSize = 10; // Default border percentage
+        this.currentWidth = 0;
+        this.currentHeight = 0;
+        this.borderSize = 0;
+        this.isActive = false;  // Track if padding is active
     }
 
-    createResizePanel() {
+    reset() {
+        this.currentWidth = 0;
+        this.currentHeight = 0;
+        this.borderSize = 0;
+        this.isActive = false;  // Reset active state
+        
+        // Reset any input fields if they exist
+        const widthInput = document.getElementById('customWidth');
+        const heightInput = document.getElementById('customHeight');
+        const borderInput = document.getElementById('borderSize');
+        const presetSelect = document.getElementById('sizePreset');
+        const borderControl = document.querySelector('.border-control');
+        
+        if (widthInput) {
+            widthInput.value = '50';
+            widthInput.disabled = true;
+        }
+        if (heightInput) {
+            heightInput.value = '50';
+            heightInput.disabled = true;
+        }
+        if (borderInput) {
+            borderInput.value = '0';
+            borderInput.disabled = true;
+            borderInput.classList.remove('active');
+        }
+        if (presetSelect) {
+            presetSelect.value = 'custom';
+            presetSelect.disabled = true;
+        }
+        if (borderControl) {
+            borderControl.classList.remove('active');
+        }
+        
+        // Reset any buttons to disabled state
+        const resizeBtn = document.querySelector('.resize-button');
+        if (resizeBtn) {
+            resizeBtn.disabled = true;
+            resizeBtn.classList.remove('active');
+        }
+    }
+
+    createResizePanel(disabled = false) {
         const panel = document.createElement('div');
         panel.className = 'resize-panel';
         
@@ -14,7 +59,7 @@ export class ResizeControls {
         
         // Border size control
         const borderControl = document.createElement('div');
-        borderControl.className = 'border-control';
+        borderControl.className = 'border-control';  // Always start inactive
         
         const borderLabel = document.createElement('label');
         borderLabel.textContent = 'Border Size: ';
@@ -24,16 +69,32 @@ export class ResizeControls {
         borderInput.type = 'range';
         borderInput.min = '5';
         borderInput.max = '25';
-        borderInput.value = this.borderSize;
-        borderInput.className = 'border-slider';
+        borderInput.value = '0';  // Always start at 0
+        borderInput.className = 'border-slider';  // Always start inactive
+        borderInput.disabled = disabled;
+        borderInput.id = 'borderSize';
         
         const borderValue = document.createElement('span');
-        borderValue.textContent = `${this.borderSize}%`;
+        borderValue.textContent = '0%';  // Always start at 0
         borderValue.className = 'border-value';
         
         borderInput.addEventListener('input', () => {
-            this.borderSize = parseInt(borderInput.value);
-            borderValue.textContent = `${this.borderSize}%`;
+            const value = parseInt(borderInput.value);
+            this.borderSize = value;
+            borderValue.textContent = `${value}%`;
+            
+            // Only add active class if there's actually a border
+            if (value > 0) {
+                this.isActive = true;
+                borderInput.classList.add('active');
+                borderControl.classList.add('active');
+            } else {
+                this.isActive = false;
+                borderInput.classList.remove('active');
+                borderControl.classList.remove('active');
+            }
+            
+            this.handleResize(this.currentWidth || undefined, this.currentHeight || undefined);
         });
         
         borderControl.appendChild(borderLabel);
@@ -47,6 +108,8 @@ export class ResizeControls {
         // Size presets
         const presetSelect = document.createElement('select');
         presetSelect.id = 'sizePreset';
+        presetSelect.disabled = disabled;
+        
         const presets = {
             'custom': 'Custom Size',
             '50x50': '50x50 (Tiny)',
@@ -73,6 +136,7 @@ export class ResizeControls {
         widthInput.min = '1';
         widthInput.max = '1000';
         widthInput.value = '50';
+        widthInput.disabled = disabled;
         
         const heightInput = document.createElement('input');
         heightInput.type = 'number';
@@ -80,10 +144,12 @@ export class ResizeControls {
         heightInput.min = '1';
         heightInput.max = '1000';
         heightInput.value = '50';
+        heightInput.disabled = disabled;
         
         const resizeBtn = document.createElement('button');
         resizeBtn.textContent = 'Resize';
         resizeBtn.className = 'resize-button';
+        resizeBtn.disabled = disabled;
         
         // Event handlers
         presetSelect.addEventListener('change', () => {
@@ -121,6 +187,8 @@ export class ResizeControls {
     }
 
     handleResize(width, height) {
-        this.onResize(width, height, this.borderSize);
+        this.currentWidth = width || this.currentWidth;
+        this.currentHeight = height || this.currentHeight;
+        this.onResize(this.currentWidth, this.currentHeight, this.borderSize);
     }
 } 

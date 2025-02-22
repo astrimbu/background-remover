@@ -1,8 +1,8 @@
 import { ProcessingOptions } from '@/types/editor';
 
 interface ImageFittingOptions {
-  borderEnabled: boolean;
-  borderSize: number;
+  paddingEnabled: boolean;
+  paddingSize: number;
   targetWidth: number | null;
   targetHeight: number | null;
   maintainAspectRatio: boolean;
@@ -18,8 +18,8 @@ export const imageApi = {
       foreground_threshold: options.foregroundThreshold,
       erode_size: options.erodeSize,
       model: options.model,
-      border_enabled: options.borderEnabled,
-      border_size: options.borderSize,
+      border_enabled: options.paddingEnabled,
+      border_size: options.paddingSize,
       target_width: options.targetWidth,
       target_height: options.targetHeight,
       maintain_aspect_ratio: options.maintainAspectRatio
@@ -43,7 +43,13 @@ export const imageApi = {
   fitImage: async (image: Blob, options: ImageFittingOptions) => {
     const formData = new FormData();
     formData.append('image', image);
-    formData.append('border', options.borderSize.toString());
+    
+    // Only send padding size if padding is enabled
+    if (options.paddingEnabled) {
+      formData.append('padding', options.paddingSize.toString());
+    } else {
+      formData.append('padding', '0');
+    }
     
     const response = await fetch('/fit-to-canvas', {
       method: 'POST',

@@ -8,6 +8,44 @@ export class BackgroundToggle {
         this.currentImageBlob = null;
     }
 
+    resetState() {
+        // Reset background state
+        this.bgState = 0;
+        
+        // Reset resize controls
+        if (this.resizeControls) {
+            this.resizeControls.reset();
+        }
+        
+        // Clear the result box and disable buttons
+        if (this.resultBox) {
+            this.resultBox.innerHTML = '<h3>Result</h3>';
+            const imageWrapper = document.createElement('div');
+            imageWrapper.className = 'image-wrapper transparent-bg';
+            this.resultBox.appendChild(imageWrapper);
+            
+            // Add disabled buttons
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.marginTop = '10px';
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.gap = '10px';
+            buttonContainer.style.justifyContent = 'center';
+            
+            // Add disabled background toggle button
+            const toggleBtn = this.createToggleButton();
+            toggleBtn.disabled = true;
+            buttonContainer.appendChild(toggleBtn);
+            
+            this.resultBox.appendChild(buttonContainer);
+            
+            // Add disabled resize panel
+            const resizePanel = this.resizeControls.createResizePanel(true);  // true indicates disabled state
+            this.resultBox.appendChild(resizePanel);
+        }
+        
+        this.currentImageBlob = null;
+    }
+
     createToggleButton() {
         const toggleBtn = document.createElement('button');
         toggleBtn.id = 'toggleBackground';
@@ -42,16 +80,26 @@ export class BackgroundToggle {
     }
 
     updateResultView(imageBlob, isGenerated = false) {
+        // Reset state when new image is loaded
         this.currentImageBlob = imageBlob;
-        const currentBg = this.resultBox.querySelector('.image-wrapper')?.className.match(/(transparent-bg|light-bg|dark-bg)/)?.[0] || 'transparent-bg';
+        this.bgState = 0;
+        
+        // Reset resize controls first
+        if (this.resizeControls) {
+            this.resizeControls.reset();
+        }
+        
+        // Clear and rebuild the result box
         this.resultBox.innerHTML = '<h3>Result</h3>';
         
-        // Add toggle button
-        this.resultBox.appendChild(this.createToggleButton());
+        // Add toggle button (disabled by default for new images)
+        const toggleBtn = this.createToggleButton();
+        toggleBtn.disabled = !isGenerated;  // Enable for generated images
+        this.resultBox.appendChild(toggleBtn);
         
-        // Add image wrapper and image
+        // Add image wrapper with transparent background
         const imageWrapper = document.createElement('div');
-        imageWrapper.className = 'image-wrapper ' + currentBg;
+        imageWrapper.className = 'image-wrapper transparent-bg';
         const resultImg = document.createElement('img');
         resultImg.src = URL.createObjectURL(imageBlob);
         imageWrapper.appendChild(resultImg);
@@ -79,7 +127,8 @@ export class BackgroundToggle {
         
         this.resultBox.appendChild(buttonContainer);
 
-        // Add resize panel
-        this.resultBox.appendChild(this.resizeControls.createResizePanel());
+        // Add resize panel (disabled by default for new images)
+        const resizePanel = this.resizeControls.createResizePanel(!isGenerated);
+        this.resultBox.appendChild(resizePanel);
     }
 } 

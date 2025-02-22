@@ -14,12 +14,14 @@ export interface ProcessingOptions {
   foregroundThreshold: number;  // Used for edge softness
   erodeSize: number;
   // Image fitting options
-  borderEnabled: boolean;  // Whether to apply border fitting
-  borderSize: number;  // Border/padding size in percentage
+  paddingEnabled: boolean;  // Whether to apply padding
+  paddingSize: number;  // Padding size in percentage (0 = full canvas, 50 = half size)
   // Image resizing options
   targetWidth: number | null;  // Target width in pixels (null means auto)
   targetHeight: number | null;  // Target height in pixels (null means auto)
   maintainAspectRatio: boolean;  // Whether to maintain aspect ratio during resize
+  // Background removal state
+  backgroundRemoved: boolean;  // Whether the background is currently removed
 }
 
 // Available background removal models
@@ -32,6 +34,11 @@ export const AVAILABLE_MODELS = {
 
 export type ModelType = keyof typeof AVAILABLE_MODELS;
 
+export interface CanvasState {
+  scale: number;
+  translate: { x: number; y: number };
+}
+
 // Editor state types
 export interface EditorState {
   currentImage: File | null;
@@ -42,6 +49,7 @@ export interface EditorState {
   settings: ProcessingOptions;
   maximizedView: 'original' | 'processed' | null;
   shouldProcess: boolean;
+  canvasState: CanvasState;
   actions: {
     setCurrentImage: (file: File) => void;
     updateSettings: (settings: Partial<ProcessingOptions>) => void;
@@ -54,6 +62,8 @@ export interface EditorState {
     clearHistory: () => void;
     triggerBackgroundRemoval: () => void;
     updateProcessedImage: (imageUrl: string) => void;
+    updateCanvasState: (state: Partial<CanvasState>) => void;
+    resetProcessingState: () => void;
   };
 }
 
@@ -62,9 +72,10 @@ export const DEFAULT_SETTINGS: ProcessingOptions = {
   model: "u2net",
   foregroundThreshold: 50,
   erodeSize: 3,
-  borderEnabled: false,
-  borderSize: 10,
+  paddingEnabled: false,
+  paddingSize: 0,  // Default to no padding
   targetWidth: null,
   targetHeight: null,
-  maintainAspectRatio: true
+  maintainAspectRatio: true,
+  backgroundRemoved: false
 }; 

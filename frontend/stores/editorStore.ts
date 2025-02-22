@@ -13,6 +13,10 @@ export const useEditorStore = create<EditorState>()(
       settings: DEFAULT_SETTINGS,
       maximizedView: null,
       shouldProcess: false,
+      canvasState: {
+        scale: 1,
+        translate: { x: 0, y: 0 }
+      },
       actions: {
         setCurrentImage: (file) => {
           // When setting a new image, read its dimensions
@@ -24,7 +28,7 @@ export const useEditorStore = create<EditorState>()(
               originalDimensions: { width: img.width, height: img.height },
               // Only update dimensions if they haven't been set by the user
               settings: {
-                ...state.settings,
+                ...DEFAULT_SETTINGS, // Reset to default settings
                 targetWidth: state.settings.targetWidth ?? img.width,
                 targetHeight: state.settings.targetHeight ?? img.height
               },
@@ -52,6 +56,7 @@ export const useEditorStore = create<EditorState>()(
             return {
               processedImage: imageUrl,
               history: [newEntry, ...state.history].slice(0, 10),  // Keep last 10 entries
+              shouldProcess: false  // Reset processing state after adding to history
             };
           }),
         restoreFromHistory: (entry) =>
@@ -90,7 +95,14 @@ export const useEditorStore = create<EditorState>()(
               processedImage: imageUrl,
               history: [newEntry, ...state.history].slice(0, 10)
             };
-          })
+          }),
+        updateCanvasState: (state) =>
+          set((prev) => ({
+            canvasState: { ...prev.canvasState, ...state }
+          })),
+        // New action to reset processing state
+        resetProcessingState: () =>
+          set({ shouldProcess: false })
       }
     }),
     { name: 'editor-store' }

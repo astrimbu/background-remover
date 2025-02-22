@@ -28,51 +28,119 @@ STYLIZE_WORKFLOW_FILE = "stylize_workflow.json"
 GENERATE_WORKFLOW_FILE = "generate_workflow.json"
 BASE_IMAGES_DIR = "base-img"
 
-def fit_to_canvas(image, border_percent):
-    """Fits image to a square canvas with specified border percentage."""
+def fit_to_canvas(image, padding_percent):
+    """Fits image within the existing canvas with specified padding percentage.
+    padding_percent: 0 means image extends to canvas edges, 50 means 25% padding on each side
+    The canvas size stays constant - the image is scaled to create the padding effect.
+    For background-removed images, considers the actual content bounds.
+    """
     # Convert to RGBA if not already
     if image.mode != 'RGBA':
         image = image.convert('RGBA')
     
-    # Get the bounding box of non-transparent pixels
-    alpha = np.array(image.split()[-1])
-    non_empty_columns = np.where(alpha.max(axis=0) > 0)[0]
-    non_empty_rows = np.where(alpha.max(axis=1) > 0)[0]
-    
-    if len(non_empty_rows) == 0 or len(non_empty_columns) == 0:
+    # If padding is 0, return the original image
+    if padding_percent == 0:
+        # For transparent images, we need to scale content to canvas edges
+        alpha = image.getchannel('A')
+        bbox = alpha.getbbox()  # Returns (left, top, right, bottom)
+        if bbox:  # If there is non-transparent content
+            # Calculate content dimensions
+            content_width = bbox[2] - bbox[0]
+            content_height = bbox[3] - bbox[1]
+            canvas_width, canvas_height = image.size
+            
+            # Calculate scale to fit content to canvas edges
+            width_ratio = canvas_width / content_width
+            height_ratio = canvas_height / content_height
+            scale = min(width_ratio, height_ratio)
+            
+            # Calculate final dimensions
+            final_width = int(content_width * scale)
+            final_height = int(content_height * scale)
+            
+            # Create new image with original canvas dimensions
+            new_image = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
+            
+            # Extract and scale content
+            content = image.crop(bbox)
+            resized_content = content.resize((final_width, final_height), Image.Resampling.LANCZOS)
+            
+            # Center the content
+            paste_x = (canvas_width - final_width) // 2
+            paste_y = (canvas_height - final_height) // 2
+            
+            # Paste the resized content
+            new_image.paste(resized_content, (paste_x, paste_y))
+            return new_image
+            
         return image
     
-    # Get the bounds
-    top = non_empty_rows[0]
-    bottom = non_empty_rows[-1]
-    left = non_empty_columns[0]
-    right = non_empty_columns[-1]
+    # Get canvas dimensions (original image dimensions)
+    canvas_width, canvas_height = image.size
     
-    # Calculate the content dimensions
-    content_width = right - left + 1
-    content_height = bottom - top + 1
+    # Check if image has transparency by looking at alpha channel
+    alpha = image.getchannel('A')
+    has_transparency = alpha.getextrema()[0] < 255  # True if any pixel is not fully opaque
     
-    # Calculate the target size with border
-    max_dimension = max(content_width, content_height)
-    border_size = int(max_dimension * (border_percent / 100))
-    canvas_size = max_dimension + (2 * border_size)
-    
-    # If border_percent is 0, make canvas size exactly match the larger dimension
-    if border_percent == 0:
-        canvas_size = max_dimension
-    
-    # Create new square image with transparent background
-    new_image = Image.new('RGBA', (canvas_size, canvas_size), (0, 0, 0, 0))
-    
-    # Calculate paste position to center the content
-    paste_x = (canvas_size - content_width) // 2
-    paste_y = (canvas_size - content_height) // 2
-    
-    # Crop and paste the original image
-    cropped = image.crop((left, top, right + 1, bottom + 1))
-    new_image.paste(cropped, (paste_x, paste_y))
-    
-    return new_image
+    if has_transparency:
+        # For background-removed images, use content bounds
+        bbox = alpha.getbbox()  # Returns (left, top, right, bottom)
+        if bbox is None:  # Image is completely transparent
+            return image
+            
+        # Calculate content dimensions
+        content_width = bbox[2] - bbox[0]
+        content_height = bbox[3] - bbox[1]
+        
+        # Calculate the target size based on padding percentage
+        # padding_percent of 50 means the content should take up 50% of the canvas
+        target_width = int(canvas_width * (1 - padding_percent / 100))
+        target_height = int(canvas_height * (1 - padding_percent / 100))
+        
+        # Calculate scale ratios to fit content within target size while maintaining aspect ratio
+        width_ratio = target_width / content_width
+        height_ratio = target_height / content_height
+        scale = min(width_ratio, height_ratio)
+        
+        # Calculate final dimensions
+        final_width = int(content_width * scale)
+        final_height = int(content_height * scale)
+        
+        # Create new image with original canvas dimensions and transparent background
+        new_image = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
+        
+        # Extract content using bbox and resize it
+        content = image.crop(bbox)
+        resized_content = content.resize((final_width, final_height), Image.Resampling.LANCZOS)
+        
+        # Calculate paste position to center the content
+        paste_x = (canvas_width - final_width) // 2
+        paste_y = (canvas_height - final_height) // 2
+        
+        # Paste the resized content
+        new_image.paste(resized_content, (paste_x, paste_y))
+        
+        return new_image
+    else:
+        # For regular images, use the original padding behavior
+        # Calculate the target size based on padding percentage
+        target_width = int(canvas_width * (1 - padding_percent / 100))
+        target_height = int(canvas_height * (1 - padding_percent / 100))
+        
+        # Create new image with original dimensions and transparent background
+        new_image = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
+        
+        # Resize the original image
+        resized_content = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        
+        # Calculate paste position to center the content
+        paste_x = (canvas_width - target_width) // 2
+        paste_y = (canvas_height - target_height) // 2
+        
+        # Paste the resized content
+        new_image.paste(resized_content, (paste_x, paste_y))
+        
+        return new_image
 
 # Initialize with default model
 session = new_session("u2net")
@@ -234,19 +302,19 @@ def process_image(image, settings):
         alpha_matting_erode_size=settings['erode_size']
     )
     
-    # Apply border only if enabled
-    if settings['border_enabled']:
-        border_size = settings['border_size']
-        print(f"Applying border size: {border_size}%")  # Debug log
-        output = fit_to_canvas(output, border_percent=border_size)
+    # Apply padding if enabled
+    if settings.get('border_enabled', False):  # Use get() with default for safety
+        padding_size = settings.get('border_size', 0)
+        print(f"Applying padding size: {padding_size}%")  # Debug log
+        output = fit_to_canvas(output, padding_percent=padding_size)
     
     # Apply resizing if specified
-    target_width = settings['target_width']
-    target_height = settings['target_height']
+    target_width = settings.get('target_width')
+    target_height = settings.get('target_height')
     if target_width or target_height:
         current_width, current_height = output.size
         print(f"Current dimensions: {current_width}x{current_height}")  # Debug log
-        if settings['maintain_aspect_ratio']:
+        if settings.get('maintain_aspect_ratio', True):
             # Calculate new dimensions maintaining aspect ratio
             if target_width and target_height:
                 # Use the more constraining dimension
@@ -309,11 +377,11 @@ def fit_image_to_canvas():
             return jsonify({'error': 'No image provided'}), 400
             
         file = request.files['image']
-        border_percent = int(request.form.get('border', '10'))  # Default to 10 if not specified
+        padding_percent = int(request.form.get('padding', '0'))  # Default to 0 if not specified
         
         # Open and fit image to canvas
         img = Image.open(file)
-        fitted_img = fit_to_canvas(img, border_percent)
+        fitted_img = fit_to_canvas(img, padding_percent=padding_percent)
         
         # Save to bytes
         img_byte_arr = io.BytesIO()
@@ -335,14 +403,14 @@ def resize_image():
         height = int(request.form.get('height'))
         file = request.files['image']
         fit_first = request.form.get('fit_first', 'true') == 'true'
-        border_percent = int(request.form.get('border', 10))
+        padding_percent = int(request.form.get('padding', '0'))  # Default to 0 if not specified
         
         # Open image
         img = Image.open(file)
         
         # First fit to canvas if requested
         if fit_first:
-            img = fit_to_canvas(img, border_percent)
+            img = fit_to_canvas(img, padding_percent=padding_percent)
         
         # Then resize
         resized_img = img.resize((width, height), Image.Resampling.LANCZOS)
