@@ -1,7 +1,6 @@
 'use client';
 
 import { Container, Paper, Typography, Button, IconButton, Tooltip, TextField, Grid, FormControl, Select, MenuItem, Stack, AppBar, Toolbar } from '@mui/material';
-import ComfySettings from '@/components/ComfySettings';
 import Link from 'next/link';
 import ImageIcon from '@mui/icons-material/Image';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
@@ -15,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useCallback, useEffect } from 'react';
 import { CircularProgress } from '@mui/material';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import StopIcon from '@mui/icons-material/Stop';
 
 export default function GeneratePage() {
   const { generatedImages, settings, actions, isGenerating, checkpoints } = useComfyStore();
@@ -26,6 +26,22 @@ export default function GeneratePage() {
   useEffect(() => {
     actions.loadCheckpoints();
   }, [actions]);
+
+  // Set up the callback to handle image changes
+  useEffect(() => {
+    actions.setOnBeforeImagesChange((newImages) => {
+      // If we're maximized and the new images would make the index invalid,
+      // reset the maximized state before the images update
+      if (maximizedImage !== null && maximizedImage >= newImages.length) {
+        setMaximizedImage(null);
+      }
+    });
+
+    // Cleanup
+    return () => {
+      actions.setOnBeforeImagesChange(null);
+    };
+  }, [actions, maximizedImage]);
 
   const handleImageEdit = async (imageUrl: string) => {
     try {
@@ -71,12 +87,22 @@ export default function GeneratePage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [maximizedImage, handlePrevImage, handleNextImage, handleMaximize]);
 
-  // Auto-maximize when batch size is 1 and there is a generated image
+  // Handle maximized state
   useEffect(() => {
-    if (settings.batchSize === 1 && generatedImages.length === 1 && maximizedImage === null) {
+    // Reset maximized state when:
+    // 1. There are no images
+    // 2. Current index is invalid
+    // 3. New images have arrived
+    if (generatedImages.length === 0 || (maximizedImage !== null && maximizedImage >= generatedImages.length)) {
+      handleMaximize(null);
+      return;
+    }
+
+    // Auto-maximize single images only after generation is complete
+    if (!isGenerating && settings.batchSize === 1 && generatedImages.length === 1 && maximizedImage === null) {
       handleMaximize(0);
     }
-  }, [generatedImages, settings.batchSize, handleMaximize, maximizedImage]);
+  }, [generatedImages, settings.batchSize, maximizedImage, isGenerating, handleMaximize]);
   
   return (
     <main className="min-h-screen bg-gray-100">
@@ -310,7 +336,7 @@ export default function GeneratePage() {
                 </Grid>
 
                 {/* Generate Button */}
-                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 1 }}>
                   <Button
                     variant="contained"
                     color="primary"
@@ -323,11 +349,23 @@ export default function GeneratePage() {
                     disabled={isGenerating || !settings.prompt.trim()}
                     startIcon={isGenerating ? <CircularProgress size={20} /> : <AutoFixHighIcon />}
                     sx={{ 
-                      width: '100%',
+                      width: isGenerating ? '50%' : '100%',
                     }}
                   >
                     {isGenerating ? 'Generating...' : 'Generate'}
                   </Button>
+                  {isGenerating && (
+                    <Button
+                      variant="contained"
+                      color="error"
+                      size="large"
+                      onClick={actions.interruptGeneration}
+                      startIcon={<StopIcon />}
+                      sx={{ width: '50%' }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
                 </Grid>
               </Grid>
             </Paper>

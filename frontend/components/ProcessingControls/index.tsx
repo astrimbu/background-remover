@@ -254,20 +254,26 @@ export function ProcessingControls() {
           secondaryTypographyProps={{ component: 'div' }}
           secondary={
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  triggerBackgroundRemoval();
-                }}
-                disabled={!currentImage || isProcessing}
-              >
-                {isProcessing ? <CircularProgress size={20} /> : <ContentCutIcon />}
-              </IconButton>
-              {!currentImage && (
+              <Tooltip title="Remove Background">
+                <IconButton
+                  size="small"
+                  color="primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    triggerBackgroundRemoval();
+                  }}
+                  disabled={!currentImage || isProcessing}
+                >
+                  {isProcessing ? <CircularProgress size={20} /> : <ContentCutIcon />}
+                </IconButton>
+              </Tooltip>
+              {!currentImage ? (
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   Upload an image first
+                </Typography>
+              ) : (
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Click to remove background
                 </Typography>
               )}
             </Stack>

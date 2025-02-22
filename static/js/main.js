@@ -25,7 +25,18 @@ class App {
     async handleFile(file) {
         this.imageProcessor.setCurrentFile(file);
         this.imageProcessor.showOriginalPreview(file);
-        await this.processCurrentImage();
+        // Only process automatically if the file wasn't from the generator
+        if (!file.name.startsWith('generated')) {
+            await this.processCurrentImage();
+        } else {
+            // For generated images, just show them in the result view without processing
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const blob = new Blob([reader.result], { type: file.type });
+                this.backgroundToggle.updateResultView(blob, true);
+            };
+            reader.readAsArrayBuffer(file);
+        }
     }
 
     async processCurrentImage() {
@@ -33,7 +44,7 @@ class App {
         const processedImageBlob = await this.imageProcessor.processImage(formData);
         
         if (processedImageBlob) {
-            this.backgroundToggle.updateResultView(processedImageBlob);
+            this.backgroundToggle.updateResultView(processedImageBlob, false);
         }
     }
 

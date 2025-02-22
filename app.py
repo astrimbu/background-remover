@@ -654,9 +654,8 @@ def get_checkpoints():
                     break
         
         if not checkpoints:
-            # If no checkpoints found, use the default one as a fallback
-            checkpoints = ["RealitiesEdgeXLLIGHTNING_TURBOV7.safetensors"]
-            print("No checkpoints found, using default:", checkpoints)
+            print("No checkpoints found")
+            return jsonify({'error': 'No checkpoints found'}), 404
         
         return jsonify({
             'checkpoints': checkpoints
@@ -664,6 +663,18 @@ def get_checkpoints():
         
     except Exception as e:
         print(f"Error fetching checkpoints: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/interrupt', methods=['POST'])
+def interrupt_generation():
+    """Interrupt the current generation process"""
+    try:
+        response = requests.post(f"{COMFYUI_API}/interrupt")
+        if not response.ok:
+            return jsonify({'error': 'Failed to interrupt generation'}), 500
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        print(f"Error interrupting generation: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

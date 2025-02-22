@@ -105,4 +105,15 @@ export async function fetchCheckpoints(): Promise<string[]> {
   const data = await response.json();
   console.log('Received checkpoints:', data.checkpoints);
   return data.checkpoints;
+}
+
+export async function interruptGeneration(): Promise<void> {
+  const response = await fetch('http://localhost:5000/interrupt', {
+    method: 'POST',
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.error || 'Failed to interrupt generation');
+  }
 } 

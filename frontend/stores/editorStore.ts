@@ -29,7 +29,9 @@ export const useEditorStore = create<EditorState>()(
                 targetHeight: state.settings.targetHeight ?? img.height
               },
               // Clear processed image when new image is uploaded
-              processedImage: null
+              processedImage: null,
+              // Don't trigger automatic processing
+              shouldProcess: false
             }));
           };
           img.src = URL.createObjectURL(file);

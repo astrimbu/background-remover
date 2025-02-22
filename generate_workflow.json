@@ -31,7 +31,7 @@
   },
   "4": {
     "inputs": {
-      "ckpt_name": "RealitiesEdgeXLLIGHTNING_TURBOV7.safetensors"
+      "ckpt_name": ""
     },
     "class_type": "CheckpointLoaderSimple",
     "_meta": {

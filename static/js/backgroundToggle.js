@@ -41,7 +41,7 @@ export class BackgroundToggle {
         }
     }
 
-    updateResultView(imageBlob) {
+    updateResultView(imageBlob, isGenerated = false) {
         this.currentImageBlob = imageBlob;
         const currentBg = this.resultBox.querySelector('.image-wrapper')?.className.match(/(transparent-bg|light-bg|dark-bg)/)?.[0] || 'transparent-bg';
         this.resultBox.innerHTML = '<h3>Result</h3>';
@@ -57,10 +57,16 @@ export class BackgroundToggle {
         imageWrapper.appendChild(resultImg);
         this.resultBox.appendChild(imageWrapper);
         
+        // Add button container
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.marginTop = '10px';
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '10px';
+        buttonContainer.style.justifyContent = 'center';
+        
         // Add download button
         const downloadBtn = document.createElement('button');
         downloadBtn.textContent = 'Download';
-        downloadBtn.style.marginTop = '10px';
         downloadBtn.onclick = () => {
             const a = document.createElement('a');
             a.href = resultImg.src;
@@ -69,8 +75,9 @@ export class BackgroundToggle {
             a.click();
             document.body.removeChild(a);
         };
-        this.resultBox.appendChild(document.createElement('br'));
-        this.resultBox.appendChild(downloadBtn);
+        buttonContainer.appendChild(downloadBtn);
+        
+        this.resultBox.appendChild(buttonContainer);
 
         // Add resize panel
         this.resultBox.appendChild(this.resizeControls.createResizePanel());
