@@ -10,9 +10,21 @@ import base64
 from pathlib import Path
 import time
 from werkzeug.utils import secure_filename
+from io import BytesIO
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+# Enable CORS with specific settings
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://localhost:3000"],  # Frontend development server
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "max_age": 3600
+    }
+})
+
+# Configure maximum request size (50MB)
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 # Available models matching frontend's AVAILABLE_MODELS
 AVAILABLE_MODELS = {
@@ -398,37 +410,65 @@ def fit_image_to_canvas():
 
 @app.route('/resize-image', methods=['POST'])
 def resize_image():
+    # Check if the request contains a file
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image provided'}), 400
+    
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'error': 'No image selected'}), 400
+    
+    # Get resize parameters
     try:
-        width = int(request.form.get('width'))
-        height = int(request.form.get('height'))
-        file = request.files['image']
-        fit_first = request.form.get('fit_first', 'true') == 'true'
-        padding_percent = int(request.form.get('padding', '0'))  # Default to 0 if not specified
+        width = request.form.get('width')
+        height = request.form.get('height')
+        maintain_aspect_ratio = request.form.get('maintain_aspect_ratio', 'true').lower() == 'true'
         
-        # Open image
+        # Convert width and height to integers if provided
+        width = int(width) if width else None
+        height = int(height) if height else None
+        
+        if width is None and height is None:
+            return jsonify({'error': 'Either width or height must be provided'}), 400
+    except ValueError:
+        return jsonify({'error': 'Invalid dimensions provided'}), 400
+    
+    try:
+        # Open the image
         img = Image.open(file)
         
-        # First fit to canvas if requested
-        if fit_first:
-            img = fit_to_canvas(img, padding_percent=padding_percent)
+        # Calculate new dimensions based on aspect ratio if needed
+        original_width, original_height = img.size
         
-        # Then resize
+        if maintain_aspect_ratio:
+            aspect_ratio = original_width / original_height
+            
+            if width is None:
+                width = int(height * aspect_ratio)
+            elif height is None:
+                height = int(width / aspect_ratio)
+            else:
+                # Both width and height provided but maintain aspect ratio
+                # Use width as the reference and adjust height
+                height = int(width / aspect_ratio)
+        else:
+            # If not maintaining aspect ratio, use original dimensions for any missing value
+            width = width or original_width
+            height = height or original_height
+        
+        # Resize the image
         resized_img = img.resize((width, height), Image.Resampling.LANCZOS)
         
-        # Save to bytes
-        img_byte_arr = io.BytesIO()
-        resized_img.save(img_byte_arr, format='PNG')
-        img_byte_arr.seek(0)
+        # Save to buffer
+        buffer = BytesIO()
+        resized_img.save(buffer, format='PNG')
+        buffer.seek(0)
         
-        return send_file(
-            img_byte_arr,
-            mimetype='image/png',
-            as_attachment=True,
-            download_name='resized.png'
-        )
+        return send_file(buffer, mimetype='image/png')
+    
     except Exception as e:
-        print(f"Error resizing image: {str(e)}")
-        return f'Error resizing image: {str(e)}', 500
+        app.logger.error(f"Error resizing image: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/base-images')
 def list_base_images():

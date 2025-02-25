@@ -20,6 +20,7 @@ export interface ProcessingOptions {
   targetWidth: number | null;  // Target width in pixels (null means auto)
   targetHeight: number | null;  // Target height in pixels (null means auto)
   maintainAspectRatio: boolean;  // Whether to maintain aspect ratio during resize
+  isResizeActive: boolean;  // Whether resize is currently active, independent of other processes
   // Background removal state
   backgroundRemoved: boolean;  // Whether the background is currently removed
 }
@@ -77,5 +78,6 @@ export const DEFAULT_SETTINGS: ProcessingOptions = {
   targetWidth: null,
   targetHeight: null,
   maintainAspectRatio: true,
+  isResizeActive: false,
   backgroundRemoved: false
 }; 

@@ -63,6 +63,32 @@ export const imageApi = {
     return response.arrayBuffer();
   },
   
+  resizeImage: async (image: Blob, width: number | null, height: number | null, maintainAspectRatio: boolean = true) => {
+    const formData = new FormData();
+    formData.append('image', image);
+    
+    if (width !== null) {
+      formData.append('width', width.toString());
+    }
+    
+    if (height !== null) {
+      formData.append('height', height.toString());
+    }
+    
+    formData.append('maintain_aspect_ratio', maintainAspectRatio.toString());
+    
+    const response = await fetch('/resize-image', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to resize image');
+    }
+    
+    return response.arrayBuffer();
+  },
+  
   // Get available models
   getModels: async () => {
     const response = await fetch('/models');

@@ -167,30 +167,62 @@ export function ProcessingControls() {
     });
   }, [settings.targetWidth, settings.targetHeight]);
 
-  // Debounced update function
+  // Update the debouncedUpdateDimensions function to apply resize when active
   const debouncedUpdateDimensions = useCallback(
-    debounce((newDimensions: { width: number | null, height: number | null }) => {
+    debounce(async (newDimensions: { width: number | null, height: number | null }) => {
+      // Calculate new dimensions based on aspect ratio if needed
+      let updatedWidth = newDimensions.width;
+      let updatedHeight = newDimensions.height;
+      
       if (settings.maintainAspectRatio && originalDimensions) {
         const aspectRatio = originalDimensions.width / originalDimensions.height;
         if (newDimensions.width !== null && newDimensions.width !== settings.targetWidth) {
-          updateSettings({
-            targetWidth: newDimensions.width,
-            targetHeight: Math.round(newDimensions.width / aspectRatio)
-          });
+          updatedWidth = newDimensions.width;
+          updatedHeight = Math.round(newDimensions.width / aspectRatio);
         } else if (newDimensions.height !== null && newDimensions.height !== settings.targetHeight) {
-          updateSettings({
-            targetHeight: newDimensions.height,
-            targetWidth: Math.round(newDimensions.height * aspectRatio)
-          });
+          updatedHeight = newDimensions.height;
+          updatedWidth = Math.round(newDimensions.height * aspectRatio);
         }
       } else {
-        updateSettings({
-          targetWidth: newDimensions.width,
-          targetHeight: newDimensions.height
-        });
+        updatedWidth = newDimensions.width;
+        updatedHeight = newDimensions.height;
+      }
+      
+      // Update the settings with the new dimensions
+      updateSettings({
+        targetWidth: updatedWidth,
+        targetHeight: updatedHeight
+      });
+      
+      // If resize is active, apply the resize immediately
+      if (settings.isResizeActive && currentImage) {
+        try {
+          setIsProcessing(true);
+          
+          // Determine the source image (original or background-removed)
+          const sourceImage = settings.backgroundRemoved && processedImage
+            ? await fetch(processedImage).then(r => r.blob())
+            : currentImage;
+          
+          // Apply the resize
+          const result = await imageApi.resizeImage(
+            sourceImage,
+            updatedWidth,
+            updatedHeight,
+            settings.maintainAspectRatio
+          );
+          
+          const imageUrl = URL.createObjectURL(new Blob([result], { type: 'image/png' }));
+          updateProcessedImage(imageUrl);
+        } catch (error) {
+          console.error('Error applying resize:', error);
+          setError(error instanceof Error ? error.message : 'Failed to apply resize');
+        } finally {
+          setIsProcessing(false);
+        }
       }
     }, 500),
-    [settings.maintainAspectRatio, originalDimensions, updateSettings]
+    [settings.maintainAspectRatio, settings.isResizeActive, originalDimensions, currentImage, processedImage, updateSettings, updateProcessedImage]
   );
 
   // Background removal processing
@@ -205,7 +237,7 @@ export function ProcessingControls() {
         console.log('Processing with settings:', settings);
         const response = await imageApi.removeBackground(currentImage, settings);
         const blob = new Blob([response], { type: 'image/png' });
-        const imageUrl = URL.createObjectURL(blob);
+        let imageUrl = URL.createObjectURL(blob);
         setOriginalProcessedImage(imageUrl); // Store the original processed image
         
         // If padding is enabled, apply it to the newly processed image
@@ -217,12 +249,25 @@ export function ProcessingControls() {
             targetHeight: settings.targetHeight,
             maintainAspectRatio: settings.maintainAspectRatio
           });
-          const paddedImageUrl = URL.createObjectURL(new Blob([paddedResult], { type: 'image/png' }));
-          updateProcessedImage(paddedImageUrl);
-        } else {
-          updateProcessedImage(imageUrl);
+          imageUrl = URL.createObjectURL(new Blob([paddedResult], { type: 'image/png' }));
         }
         
+        // If resize is active, apply resize to the processed image
+        if (settings.isResizeActive) {
+          const sourceBlob = settings.paddingEnabled && settings.paddingSize > 0 ? 
+            await fetch(imageUrl).then(r => r.blob()) : blob;
+          
+          const resizedResult = await imageApi.resizeImage(
+            sourceBlob,
+            settings.targetWidth,
+            settings.targetHeight,
+            settings.maintainAspectRatio
+          );
+          
+          imageUrl = URL.createObjectURL(new Blob([resizedResult], { type: 'image/png' }));
+        }
+        
+        updateProcessedImage(imageUrl);
         addToHistory(imageUrl);
         // Ensure the backgroundRemoved state is set to true after successful processing
         updateSettings({ backgroundRemoved: true });
@@ -351,6 +396,52 @@ export function ProcessingControls() {
     updateSettings({ maintainAspectRatio: !settings.maintainAspectRatio });
   }, [settings.maintainAspectRatio, updateSettings]);
 
+  const handleResizeToggle = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentImage) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      if (settings.isResizeActive) {
+        // If resize is active, revert to the original image or current processed state
+        if (settings.backgroundRemoved && originalProcessedImage) {
+          // If background is removed, use that as the base
+          const result = await fetch(originalProcessedImage).then(r => r.blob());
+          const imageUrl = URL.createObjectURL(result);
+          updateProcessedImage(imageUrl);
+        } else {
+          // Otherwise use the original image
+          const imageUrl = URL.createObjectURL(currentImage);
+          updateProcessedImage(imageUrl);
+        }
+        updateSettings({ isResizeActive: false });
+      } else {
+        // If resize is not active, apply resize to the current image
+        const sourceImage = settings.backgroundRemoved && processedImage
+          ? await fetch(processedImage).then(r => r.blob())
+          : currentImage;
+
+        const result = await imageApi.resizeImage(
+          sourceImage,
+          settings.targetWidth,
+          settings.targetHeight,
+          settings.maintainAspectRatio
+        );
+        
+        const imageUrl = URL.createObjectURL(new Blob([result], { type: 'image/png' }));
+        updateProcessedImage(imageUrl);
+        updateSettings({ isResizeActive: true });
+      }
+    } catch (error) {
+      console.error('Error toggling resize:', error);
+      setError(error instanceof Error ? error.message : 'Failed to toggle resize');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [currentImage, settings, processedImage, originalProcessedImage, updateSettings, updateProcessedImage]);
+
   // Handle dimension input changes
   const handleDimensionChange = useCallback((dimension: 'width' | 'height') => (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value === '' ? null : Number(event.target.value);
@@ -371,16 +462,48 @@ export function ProcessingControls() {
     if (settings.backgroundRemoved) {
       // If background is removed, restore original image
       if (currentImage) {
-        const imageUrl = URL.createObjectURL(currentImage);
-        updateProcessedImage(imageUrl);
-        updateSettings({ backgroundRemoved: false });
+        // If resize is active, we need to apply resize to the original image
+        if (settings.isResizeActive) {
+          // First update the settings to indicate background is no longer removed
+          updateSettings({ backgroundRemoved: false });
+          
+          // Then trigger a resize operation on the original image
+          const sourceImage = currentImage;
+          setTimeout(async () => {
+            try {
+              setIsProcessing(true);
+              const result = await imageApi.resizeImage(
+                sourceImage,
+                settings.targetWidth,
+                settings.targetHeight,
+                settings.maintainAspectRatio
+              );
+              const imageUrl = URL.createObjectURL(new Blob([result], { type: 'image/png' }));
+              updateProcessedImage(imageUrl);
+            } catch (error) {
+              console.error('Error resizing original image:', error);
+              setError(error instanceof Error ? error.message : 'Failed to resize original image');
+              // Just show the original image if resize fails
+              const imageUrl = URL.createObjectURL(currentImage);
+              updateProcessedImage(imageUrl);
+            } finally {
+              setIsProcessing(false);
+            }
+          }, 0);
+        } else {
+          // No resize active, just show the original image
+          const imageUrl = URL.createObjectURL(currentImage);
+          updateProcessedImage(imageUrl);
+          updateSettings({ backgroundRemoved: false });
+        }
       }
     } else {
-      // If background is not removed, trigger removal
+      // If background is not removed, trigger removal with resize if active
       updateSettings({ backgroundRemoved: true });
       triggerBackgroundRemoval();
+      // The background removal process will handle resize if it's active
     }
-  }, [currentImage, settings.backgroundRemoved, triggerBackgroundRemoval, updateProcessedImage, updateSettings]);
+  }, [currentImage, settings, triggerBackgroundRemoval, updateProcessedImage, updateSettings, imageApi]);
 
   return (
     <List component="nav" sx={{ p: 0 }}>
@@ -585,16 +708,16 @@ export function ProcessingControls() {
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
               <IconButton 
                 size="small"
-                color={settings.maintainAspectRatio ? "primary" : "default"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAspectRatioToggle();
-                }}
+                color={settings.isResizeActive ? "primary" : "default"}
+                onClick={handleResizeToggle}
+                disabled={!currentImage || isProcessing}
               >
-                <CropIcon />
+                {isProcessing ? <CircularProgress size={20} /> : <CropIcon />}
               </IconButton>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {settings.targetWidth || '–'} × {settings.targetHeight || '–'} px
+                {settings.isResizeActive ? 
+                  `Resized to ${settings.targetWidth || '–'} × ${settings.targetHeight || '–'} px` : 
+                  (currentImage ? 'Click to resize' : 'Upload an image first')}
               </Typography>
             </Stack>
           }
@@ -612,7 +735,33 @@ export function ProcessingControls() {
                 <Tooltip title={settings.maintainAspectRatio ? "Unlock aspect ratio" : "Lock aspect ratio"}>
                   <IconButton 
                     size="small"
-                    onClick={handleAspectRatioToggle}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAspectRatioToggle();
+                      
+                      // Apply resize immediately if resize is active
+                      if (settings.isResizeActive && currentImage) {
+                        // Toggle will update the maintainAspectRatio setting, so use the opposite of current value
+                        const newAspectRatioSetting = !settings.maintainAspectRatio;
+                        
+                        // Calculate the new height if aspect ratio is being enabled
+                        let updatedWidth = settings.targetWidth;
+                        let updatedHeight = settings.targetHeight;
+                        
+                        if (newAspectRatioSetting && originalDimensions && updatedWidth && updatedHeight) {
+                          const aspectRatio = originalDimensions.width / originalDimensions.height;
+                          updatedHeight = Math.round(updatedWidth / aspectRatio);
+                          
+                          // Update dimensions in settings
+                          updateSettings({ targetHeight: updatedHeight });
+                        }
+                        
+                        // Trigger resize to apply the new aspect ratio
+                        setTimeout(() => {
+                          handleResizeToggle(e);
+                        }, 0);
+                      }
+                    }}
                     color={settings.maintainAspectRatio ? "primary" : "default"}
                   >
                     {settings.maintainAspectRatio ? <LockIcon /> : <LockOpenIcon />}

@@ -20,6 +20,10 @@ const nextConfig = {
         destination: 'http://localhost:5000/remove-background',
       },
       {
+        source: '/resize-image',
+        destination: 'http://localhost:5000/resize-image',
+      },
+      {
         source: '/models',
         destination: 'http://localhost:5000/models',
       },
@@ -51,7 +55,29 @@ const nextConfig = {
         source: '/temp/:path*',
         destination: 'http://localhost:5000/temp/:path*',
       }
-    ];
+    ].map(rewrite => ({
+      ...rewrite,
+      // Add custom config to each rewrite rule
+      has: [
+        {
+          type: 'header',
+          key: 'content-type',
+          value: '(.*)'
+        }
+      ]
+    }));
+  },
+  // Configure body size limit for API routes
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb'
+    },
+    responseLimit: '50mb'
+  },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb'
+    }
   },
   // For production static export
   output: process.env.NODE_ENV === 'production' ? 'export' : undefined,
@@ -77,6 +103,16 @@ const nextConfig = {
     if (dev && !isServer) {
       config.devtool = 'eval';
     }
+    
+    // Increase the size limit for assets
+    if (!isServer) {
+      config.performance = {
+        ...config.performance,
+        maxAssetSize: 1024 * 1024 * 50,  // 50MB
+        maxEntrypointSize: 1024 * 1024 * 50  // 50MB
+      };
+    }
+    
     return config;
   }
 }
