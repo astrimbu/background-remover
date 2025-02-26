@@ -180,6 +180,14 @@ export default function GeneratePage() {
                 placeholder="Describe what you don't want to see in the image..."
                 value={settings.negativePrompt}
                 onChange={(e) => actions.updateSettings({ negativePrompt: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!isGenerating && settings.prompt.trim()) {
+                      actions.generateImages();
+                    }
+                  }
+                }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': {

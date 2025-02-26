@@ -19,6 +19,8 @@ CORS(app, resources={
         "origins": ["http://localhost:3000"],  # Frontend development server
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
+        "expose_headers": ["Content-Type"],
+        "supports_credentials": True,
         "max_age": 3600
     }
 })
@@ -743,10 +745,22 @@ def get_checkpoints():
     """Get list of available checkpoints from ComfyUI"""
     try:
         print("Fetching checkpoints from ComfyUI...")
-        response = requests.get(f"{COMFYUI_API}/object_info")
+        # First check if ComfyUI is accessible
+        try:
+            response = requests.get(f"{COMFYUI_API}/object_info", timeout=5)
+        except requests.exceptions.ConnectionError:
+            print("ComfyUI is not accessible")
+            return jsonify({
+                'error': 'ComfyUI is not accessible. Please ensure ComfyUI is running.',
+                'checkpoints': []
+            }), 200  # Return 200 with empty list instead of 404
+            
         if not response.ok:
             print(f"Failed to fetch from ComfyUI: {response.status_code}")
-            return jsonify({'error': 'Failed to fetch checkpoints'}), 500
+            return jsonify({
+                'error': f'Failed to fetch from ComfyUI: {response.status_code}',
+                'checkpoints': []
+            }), 200  # Return 200 with empty list instead of 404
             
         data = response.json()
         
@@ -761,17 +775,17 @@ def get_checkpoints():
                         print(f"Found checkpoints: {checkpoints}")
                     break
         
-        if not checkpoints:
-            print("No checkpoints found")
-            return jsonify({'error': 'No checkpoints found'}), 404
-        
+        # Always return 200, even if no checkpoints found
         return jsonify({
-            'checkpoints': checkpoints
-        })
+            'checkpoints': checkpoints or []  # Return empty list if no checkpoints found
+        }), 200
         
     except Exception as e:
         print(f"Error fetching checkpoints: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': str(e),
+            'checkpoints': []
+        }), 200  # Return 200 with empty list instead of 500
 
 @app.route('/interrupt', methods=['POST'])
 def interrupt_generation():
@@ -784,6 +798,15 @@ def interrupt_generation():
     except Exception as e:
         print(f"Error interrupting generation: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.after_request
+def after_request(response):
+    # Ensure CORS headers are set for all responses
+    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
 if __name__ == '__main__':
     app.run(debug=True)

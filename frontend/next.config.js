@@ -2,7 +2,7 @@
 const nextConfig = {
   // During development, proxy API requests to Flask
   async rewrites() {
-    return [
+    const rules = [
       {
         source: '/base-images',
         destination: 'http://localhost:5000/base-images',
@@ -32,6 +32,10 @@ const nextConfig = {
         destination: 'http://localhost:5000/switch-model',
       },
       {
+        source: '/generate',
+        destination: 'http://localhost:5000/generate',
+      },
+      {
         source: '/comfyui-process',
         destination: 'http://localhost:5000/comfyui-process',
       },
@@ -55,16 +59,31 @@ const nextConfig = {
         source: '/temp/:path*',
         destination: 'http://localhost:5000/temp/:path*',
       }
-    ].map(rewrite => ({
+    ];
+
+    // Add content-type requirement only for POST endpoints
+    const postEndpoints = [
+      '/remove-background',
+      '/fit-to-canvas',
+      '/resize-image',
+      '/switch-model',
+      '/comfyui-process',
+      '/comfyui-generate',
+      '/save-temp-image'
+    ];
+
+    return rules.map(rewrite => ({
       ...rewrite,
-      // Add custom config to each rewrite rule
-      has: [
-        {
-          type: 'header',
-          key: 'content-type',
-          value: '(.*)'
-        }
-      ]
+      // Only add content-type requirement for POST endpoints
+      ...(postEndpoints.includes(rewrite.source) ? {
+        has: [
+          {
+            type: 'header',
+            key: 'content-type',
+            value: '(.*)'
+          }
+        ]
+      } : {})
     }));
   },
   // Configure body size limit for API routes
