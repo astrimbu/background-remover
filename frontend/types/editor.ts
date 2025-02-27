@@ -46,6 +46,7 @@ export interface DrawingAction {
 export interface PenToolState {
   isActive: boolean;
   color: string;
+  secondaryColor: string;  // Add secondary color for right-click drawing
   size: number;
   opacity: number;
   history: DrawingAction[];
@@ -112,6 +113,7 @@ export const DEFAULT_SETTINGS: ProcessingOptions = {
 export const DEFAULT_PEN_TOOL_STATE: PenToolState = {
   isActive: false,
   color: '#000000',
+  secondaryColor: '#ffffff',  // Default secondary color
   size: 5,
   opacity: 1,
   history: [],

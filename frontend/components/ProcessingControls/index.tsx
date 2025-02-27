@@ -49,7 +49,7 @@ const debounce = (func: Function, wait: number) => {
 };
 
 interface ProcessingControlsProps {
-  canvasRef?: React.RefObject<ImageCanvasRef>;
+  canvasRef: React.RefObject<ImageCanvasRef | null>;
 }
 
 export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {

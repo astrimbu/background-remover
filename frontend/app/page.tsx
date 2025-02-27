@@ -3,7 +3,7 @@
 import { useEditorStore } from '@/stores/editorStore';
 import { ImageDropzone } from '@/components/ImageDropzone';
 import { ProcessingControls } from '@/components/ProcessingControls';
-import { Typography, IconButton, Tooltip, Button, AppBar, Toolbar, Box, Slider, Stack, TextField } from '@mui/material';
+import { Typography, IconButton, Tooltip, Button, AppBar, Toolbar, Box, Slider, Stack, TextField, Popover } from '@mui/material';
 import { useCallback, useState, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { BackgroundToggle, BackgroundToggleButton } from '@/components/BackgroundToggle';
@@ -32,6 +32,10 @@ export default function EditorPage() {
   const [background, setBackground] = useState<BackgroundType>('transparent');
   const [zoomControls, setZoomControls] = useState<React.ReactNode>(null);
   const canvasRef = useRef<ImageCanvasRef>(null);
+  const [colorPickerAnchor, setColorPickerAnchor] = useState<{
+    element: HTMLElement | null;
+    isSecondary: boolean;
+  }>({ element: null, isSecondary: false });
   
   const handleToggle = useCallback(() => {
     const sequence: BackgroundType[] = ['transparent', 'light', 'dark'];
@@ -80,6 +84,14 @@ export default function EditorPage() {
       URL.revokeObjectURL(url);
     }, 'image/png');
   }, [updateProcessedImage]);
+
+  const handleColorBoxClick = (event: React.MouseEvent<HTMLElement>, isSecondary: boolean) => {
+    setColorPickerAnchor({ element: event.currentTarget, isSecondary });
+  };
+
+  const handleColorPickerClose = () => {
+    setColorPickerAnchor({ element: null, isSecondary: false });
+  };
 
   return (
     <div {...getRootProps()} className="h-screen flex flex-col">
@@ -196,39 +208,114 @@ export default function EditorPage() {
                 {/* Color Picker */}
                 <Box>
                   <Typography variant="subtitle2" sx={{ color: 'text.primary' }} gutterBottom>
-                    Color
+                    Colors
                   </Typography>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      mb: 1
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 1,
-                        border: '2px solid rgba(0,0,0,0.1)',
-                        backgroundColor: canvasState.penTool.color
-                      }}
-                    />
-                    <TextField
-                      size="small"
-                      value={canvasState.penTool.color}
-                      onChange={(e) => updatePenToolSettings({ color: e.target.value })}
-                      sx={{ flex: 1 }}
-                    />
-                  </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <HexColorPicker
-                      color={canvasState.penTool.color}
-                      onChange={(color: string) => updatePenToolSettings({ color })}
-                    />
-                  </Box>
+                  <Stack spacing={2}>
+                    {/* Primary Color (Left Click) */}
+                    <Box>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }} gutterBottom>
+                        Left Click Color
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          mb: 1
+                        }}
+                      >
+                        <Box
+                          onClick={(e) => handleColorBoxClick(e, false)}
+                          sx={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 1,
+                            border: '2px solid rgba(0,0,0,0.1)',
+                            backgroundColor: canvasState.penTool.color,
+                            cursor: 'pointer',
+                            transition: 'border-color 0.2s',
+                            '&:hover': {
+                              borderColor: 'rgba(0,0,0,0.3)'
+                            }
+                          }}
+                        />
+                        <TextField
+                          size="small"
+                          value={canvasState.penTool.color}
+                          onChange={(e) => updatePenToolSettings({ color: e.target.value })}
+                          sx={{ flex: 1 }}
+                        />
+                      </Box>
+                    </Box>
+
+                    {/* Secondary Color (Right Click) */}
+                    <Box>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }} gutterBottom>
+                        Right Click Color
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          mb: 1
+                        }}
+                      >
+                        <Box
+                          onClick={(e) => handleColorBoxClick(e, true)}
+                          sx={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 1,
+                            border: '2px solid rgba(0,0,0,0.1)',
+                            backgroundColor: canvasState.penTool.secondaryColor,
+                            cursor: 'pointer',
+                            transition: 'border-color 0.2s',
+                            '&:hover': {
+                              borderColor: 'rgba(0,0,0,0.3)'
+                            }
+                          }}
+                        />
+                        <TextField
+                          size="small"
+                          value={canvasState.penTool.secondaryColor}
+                          onChange={(e) => updatePenToolSettings({ secondaryColor: e.target.value })}
+                          sx={{ flex: 1 }}
+                        />
+                      </Box>
+                    </Box>
+                  </Stack>
                 </Box>
+
+                {/* Color Picker Popovers */}
+                <Popover
+                  open={Boolean(colorPickerAnchor.element)}
+                  anchorEl={colorPickerAnchor.element}
+                  onClose={handleColorPickerClose}
+                  anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'left',
+                  }}
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'left',
+                  }}
+                  sx={{
+                    '& .MuiPopover-paper': {
+                      p: 1,
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                    }
+                  }}
+                >
+                  <HexColorPicker
+                    color={colorPickerAnchor.isSecondary ? canvasState.penTool.secondaryColor : canvasState.penTool.color}
+                    onChange={(color: string) => {
+                      updatePenToolSettings(
+                        colorPickerAnchor.isSecondary ? { secondaryColor: color } : { color }
+                      );
+                    }}
+                  />
+                </Popover>
 
                 {/* Size Slider */}
                 <Box>

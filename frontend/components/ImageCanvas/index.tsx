@@ -228,10 +228,12 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
       if (!ctx) return;
 
       const rect = canvas.getBoundingClientRect();
-      // Calculate the cursor position in canvas space by accounting for scale and translation
       const x = (e.clientX - rect.left) / scale;
       const y = (e.clientY - rect.top) / scale;
 
+      // Set color based on which mouse button is being used
+      ctx.strokeStyle = e.button === 2 ? penTool.secondaryColor : penTool.color;
+      
       ctx.beginPath();
       ctx.moveTo(startPoint.x, startPoint.y);
       ctx.lineTo(x, y);
@@ -240,25 +242,32 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
       // Update current path with the canvas-space coordinates
       penTool.currentPath.push({ x, y });
       setStartPoint({ x, y });
-    }, [isDrawing, penTool.isActive, scale, startPoint, penTool.currentPath]);
+    }, [isDrawing, penTool.isActive, scale, startPoint, penTool.currentPath, penTool.color, penTool.secondaryColor]);
 
     // Handle mouse events
     const handleMouseDown = useCallback((e: MouseEvent) => {
       e.preventDefault();
       
-      if (penTool.isActive) {
+      // Middle mouse button (button === 1) always pans
+      if (e.button === 1) {
+        setIsPanning(true);
+        setStartPoint({ x: e.clientX - translate.x, y: e.clientY - translate.y });
+        return;
+      }
+      
+      // Left or right click for drawing when pen tool is active
+      if (penTool.isActive && (e.button === 0 || e.button === 2)) {
         const canvas = canvasRef.current;
         if (!canvas) return;
         
         const rect = canvas.getBoundingClientRect();
-        // Calculate the initial point in canvas space
         const x = (e.clientX - rect.left) / scale;
         const y = (e.clientY - rect.top) / scale;
         
         setIsDrawing(true);
         setStartPoint({ x, y });
         penTool.currentPath = [{ x, y }];
-      } else if (e.button === 0 || e.button === 1) {
+      } else if (e.button === 0) { // Left click for panning when pen tool is inactive
         setIsPanning(true);
         setStartPoint({ x: e.clientX - translate.x, y: e.clientY - translate.y });
       }
@@ -274,13 +283,13 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
       }
     }, [isDrawing, isPanning, penTool.isActive, startPoint, updateCanvasState, draw]);
 
-    const handleMouseUp = useCallback(() => {
+    const handleMouseUp = useCallback((e: MouseEvent) => {
       if (isDrawing && penTool.currentPath.length > 1) {
         // Add the drawing action to history
         const action: DrawingAction = {
           type: 'draw',
           points: [...penTool.currentPath],
-          color: penTool.color,
+          color: e.button === 2 ? penTool.secondaryColor : penTool.color,
           size: penTool.size,
           opacity: penTool.opacity
         };
@@ -289,6 +298,13 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
       setIsPanning(false);
       setIsDrawing(false);
     }, [isDrawing, penTool, addDrawingAction]);
+
+    // Prevent context menu on right-click when pen tool is active
+    const handleContextMenu = useCallback((e: MouseEvent) => {
+      if (penTool.isActive) {
+        e.preventDefault();
+      }
+    }, [penTool.isActive]);
 
     // Handle zoom with mouse wheel
     const handleWheel = useCallback((e: WheelEvent) => {
@@ -343,6 +359,7 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onContextMenu={handleContextMenu}
         onWheel={handleWheel}
         className={className}
         style={{ cursor: penTool.isActive ? 'crosshair' : 'grab' }}
