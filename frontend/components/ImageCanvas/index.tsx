@@ -228,18 +228,19 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
       if (!ctx) return;
 
       const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / scale - translate.x;
-      const y = (e.clientY - rect.top) / scale - translate.y;
+      // Calculate the cursor position in canvas space by accounting for scale and translation
+      const x = (e.clientX - rect.left) / scale;
+      const y = (e.clientY - rect.top) / scale;
 
       ctx.beginPath();
       ctx.moveTo(startPoint.x, startPoint.y);
       ctx.lineTo(x, y);
       ctx.stroke();
 
-      // Update current path
+      // Update current path with the canvas-space coordinates
       penTool.currentPath.push({ x, y });
       setStartPoint({ x, y });
-    }, [isDrawing, penTool.isActive, scale, translate, startPoint, penTool.currentPath]);
+    }, [isDrawing, penTool.isActive, scale, startPoint, penTool.currentPath]);
 
     // Handle mouse events
     const handleMouseDown = useCallback((e: MouseEvent) => {
@@ -250,8 +251,9 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
         if (!canvas) return;
         
         const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / scale - translate.x;
-        const y = (e.clientY - rect.top) / scale - translate.y;
+        // Calculate the initial point in canvas space
+        const x = (e.clientX - rect.left) / scale;
+        const y = (e.clientY - rect.top) / scale;
         
         setIsDrawing(true);
         setStartPoint({ x, y });
