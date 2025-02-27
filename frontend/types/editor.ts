@@ -35,9 +35,28 @@ export const AVAILABLE_MODELS = {
 
 export type ModelType = keyof typeof AVAILABLE_MODELS;
 
+export interface DrawingAction {
+  type: 'draw';
+  points: { x: number; y: number }[];
+  color: string;
+  size: number;
+  opacity: number;
+}
+
+export interface PenToolState {
+  isActive: boolean;
+  color: string;
+  size: number;
+  opacity: number;
+  history: DrawingAction[];
+  redoStack: DrawingAction[];
+  currentPath: { x: number; y: number }[];
+}
+
 export interface CanvasState {
   scale: number;
   translate: { x: number; y: number };
+  penTool: PenToolState;
 }
 
 // Editor state types
@@ -65,6 +84,14 @@ export interface EditorState {
     updateProcessedImage: (imageUrl: string) => void;
     updateCanvasState: (state: Partial<CanvasState>) => void;
     resetProcessingState: () => void;
+    // Pen tool actions
+    togglePenTool: () => void;
+    updatePenToolSettings: (settings: Partial<PenToolState>) => void;
+    // Drawing history actions
+    addDrawingAction: (action: DrawingAction) => void;
+    undoDrawing: () => void;
+    redoDrawing: () => void;
+    clearDrawing: () => void;
   };
 }
 
@@ -80,4 +107,14 @@ export const DEFAULT_SETTINGS: ProcessingOptions = {
   maintainAspectRatio: true,
   isResizeActive: false,
   backgroundRemoved: false
+};
+
+export const DEFAULT_PEN_TOOL_STATE: PenToolState = {
+  isActive: false,
+  color: '#000000',
+  size: 5,
+  opacity: 1,
+  history: [],
+  redoStack: [],
+  currentPath: []
 }; 

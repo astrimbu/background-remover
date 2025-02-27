@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { AVAILABLE_MODELS, DEFAULT_SETTINGS } from '@/types/editor';
 import { imageApi } from '@/lib/api';
@@ -37,6 +37,7 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import BorderAllIcon from '@mui/icons-material/BorderAll';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 import CropIcon from '@mui/icons-material/Crop';
+import { ImageCanvasRef } from '@/components/ImageCanvas';
 
 // Debounce helper function
 const debounce = (func: Function, wait: number) => {
@@ -47,7 +48,11 @@ const debounce = (func: Function, wait: number) => {
   };
 };
 
-export function ProcessingControls() {
+interface ProcessingControlsProps {
+  canvasRef?: React.RefObject<ImageCanvasRef>;
+}
+
+export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
   const settings = useEditorStore(state => state.settings);
   const currentImage = useEditorStore(state => state.currentImage);
   const processedImage = useEditorStore(state => state.processedImage);
@@ -291,6 +296,31 @@ export function ProcessingControls() {
     if (!processedImage && !currentImage) return;
 
     try {
+      // If we have a canvas ref, use the merged canvas
+      if (canvasRef?.current) {
+        const mergedCanvas = canvasRef.current.getMergedCanvas();
+        if (mergedCanvas) {
+          mergedCanvas.toBlob((blob) => {
+            if (!blob) return;
+            
+            // Create object URL and update processed image
+            const url = URL.createObjectURL(blob);
+            updateProcessedImage(url);
+
+            // Trigger download
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'edited-image.png';
+            link.click();
+
+            // Clean up
+            URL.revokeObjectURL(url);
+          }, 'image/png');
+          return;
+        }
+      }
+
+      // Fallback to original save behavior if no canvas ref or merge fails
       const imageToSave = processedImage || (currentImage ? URL.createObjectURL(currentImage) : null);
       if (!imageToSave) return;
 
@@ -308,7 +338,7 @@ export function ProcessingControls() {
       console.error('Error saving image:', error);
       setError('Failed to save image');
     }
-  }, [processedImage, currentImage]);
+  }, [processedImage, currentImage, updateProcessedImage]);
 
   const handleResetEdgeSettings = useCallback(() => {
     // Only trigger reprocessing if the settings actually changed

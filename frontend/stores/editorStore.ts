@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { EditorState, ProcessingOptions, AVAILABLE_MODELS, HistoryEntry, DEFAULT_SETTINGS } from '@/types/editor';
+import { 
+  EditorState, 
+  ProcessingOptions, 
+  AVAILABLE_MODELS, 
+  HistoryEntry, 
+  DEFAULT_SETTINGS, 
+  DEFAULT_PEN_TOOL_STATE,
+  PenToolState,
+  DrawingAction
+} from '@/types/editor';
 
 export const useEditorStore = create<EditorState>()(
   devtools(
@@ -15,7 +24,8 @@ export const useEditorStore = create<EditorState>()(
       shouldProcess: false,
       canvasState: {
         scale: 1,
-        translate: { x: 0, y: 0 }
+        translate: { x: 0, y: 0 },
+        penTool: DEFAULT_PEN_TOOL_STATE
       },
       actions: {
         setCurrentImage: (file) => {
@@ -98,11 +108,96 @@ export const useEditorStore = create<EditorState>()(
           }),
         updateCanvasState: (state) =>
           set((prev) => ({
-            canvasState: { ...prev.canvasState, ...state }
+            canvasState: { 
+              ...prev.canvasState,
+              ...state,
+              penTool: {
+                ...prev.canvasState.penTool,
+                ...(state.penTool || {})
+              }
+            }
           })),
         // New action to reset processing state
         resetProcessingState: () =>
-          set({ shouldProcess: false })
+          set({ shouldProcess: false }),
+        // Pen tool specific actions
+        togglePenTool: () =>
+          set((prev) => ({
+            canvasState: {
+              ...prev.canvasState,
+              penTool: {
+                ...prev.canvasState.penTool,
+                isActive: !prev.canvasState.penTool.isActive
+              }
+            }
+          })),
+        updatePenToolSettings: (settings: Partial<PenToolState>) =>
+          set((prev) => ({
+            canvasState: {
+              ...prev.canvasState,
+              penTool: {
+                ...prev.canvasState.penTool,
+                ...settings
+              }
+            }
+          })),
+        // Drawing history actions
+        addDrawingAction: (action: DrawingAction) =>
+          set((prev) => ({
+            canvasState: {
+              ...prev.canvasState,
+              penTool: {
+                ...prev.canvasState.penTool,
+                history: [...prev.canvasState.penTool.history, action],
+                redoStack: [], // Clear redo stack when new action is added
+                currentPath: [] // Clear current path
+              }
+            }
+          })),
+        undoDrawing: () =>
+          set((prev) => {
+            const lastAction = prev.canvasState.penTool.history[prev.canvasState.penTool.history.length - 1];
+            if (!lastAction) return prev;
+
+            return {
+              canvasState: {
+                ...prev.canvasState,
+                penTool: {
+                  ...prev.canvasState.penTool,
+                  history: prev.canvasState.penTool.history.slice(0, -1),
+                  redoStack: [...prev.canvasState.penTool.redoStack, lastAction]
+                }
+              }
+            };
+          }),
+        redoDrawing: () =>
+          set((prev) => {
+            const nextAction = prev.canvasState.penTool.redoStack[prev.canvasState.penTool.redoStack.length - 1];
+            if (!nextAction) return prev;
+
+            return {
+              canvasState: {
+                ...prev.canvasState,
+                penTool: {
+                  ...prev.canvasState.penTool,
+                  history: [...prev.canvasState.penTool.history, nextAction],
+                  redoStack: prev.canvasState.penTool.redoStack.slice(0, -1)
+                }
+              }
+            };
+          }),
+        clearDrawing: () =>
+          set((prev) => ({
+            canvasState: {
+              ...prev.canvasState,
+              penTool: {
+                ...prev.canvasState.penTool,
+                history: [],
+                redoStack: [],
+                currentPath: []
+              }
+            }
+          })),
       }
     }),
     { name: 'editor-store' }
