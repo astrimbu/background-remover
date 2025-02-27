@@ -93,6 +93,7 @@ export interface EditorState {
     undoDrawing: () => void;
     redoDrawing: () => void;
     clearDrawing: () => void;
+    updateDrawingCoordinates: (transform: (point: { x: number; y: number }) => { x: number; y: number }) => void;
   };
 }
 

@@ -198,6 +198,24 @@ export const useEditorStore = create<EditorState>()(
               }
             }
           })),
+        updateDrawingCoordinates: (transform) =>
+          set((prev) => ({
+            canvasState: {
+              ...prev.canvasState,
+              penTool: {
+                ...prev.canvasState.penTool,
+                history: prev.canvasState.penTool.history.map(action => ({
+                  ...action,
+                  points: action.points.map(transform)
+                })),
+                redoStack: prev.canvasState.penTool.redoStack.map(action => ({
+                  ...action,
+                  points: action.points.map(transform)
+                })),
+                currentPath: prev.canvasState.penTool.currentPath.map(transform)
+              }
+            }
+          })),
       }
     }),
     { name: 'editor-store' }

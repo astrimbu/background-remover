@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
-import { AVAILABLE_MODELS, DEFAULT_SETTINGS } from '@/types/editor';
+import { AVAILABLE_MODELS, DEFAULT_SETTINGS, DrawingAction } from '@/types/editor';
 import { imageApi } from '@/lib/api';
 import { 
   FormControl,
@@ -58,7 +58,7 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
   const processedImage = useEditorStore(state => state.processedImage);
   const originalDimensions = useEditorStore(state => state.originalDimensions);
   const shouldProcess = useEditorStore(state => state.shouldProcess);
-  const { updateSettings, addToHistory, resetSettings, triggerBackgroundRemoval, updateProcessedImage, resetProcessingState, clearDrawing } = useEditorStore(state => state.actions);
+  const { updateSettings, addToHistory, resetSettings, triggerBackgroundRemoval, updateProcessedImage, resetProcessingState, clearDrawing, updateDrawingCoordinates } = useEditorStore(state => state.actions);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,32 +100,13 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
   // Add debounced padding update function
   const debouncedPaddingUpdate = useCallback(
     debounce(async (paddingSize: number) => {
-      if (!currentImage) return;
+      if (!currentImage || !originalDimensions) return;
       
       try {
-        let sourceBlob: Blob;
-        
-        // If we have drawings, use the merged canvas
-        if (canvasRef?.current) {
-          const mergedCanvas = canvasRef.current.getMergedCanvas();
-          if (mergedCanvas) {
-            sourceBlob = await new Promise<Blob>((resolve) => {
-              mergedCanvas.toBlob((blob) => {
-                if (blob) resolve(blob);
-              }, 'image/png');
-            });
-          } else {
-            // Fallback to original image if merge fails
-            sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
-              await fetch(originalProcessedImage).then(r => r.blob()) : 
-              currentImage.slice();
-          }
-        } else {
-          // No canvas ref, use original image
-          sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
-            await fetch(originalProcessedImage).then(r => r.blob()) : 
-            currentImage.slice();
-        }
+        // Always use the original image or background-removed image as source
+        let sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
+          await fetch(originalProcessedImage).then(r => r.blob()) : 
+          currentImage.slice();
 
         const result = await imageApi.fitImage(sourceBlob, {
           paddingEnabled: settings.paddingEnabled,
@@ -137,14 +118,35 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
         const imageUrl = URL.createObjectURL(new Blob([result], { type: 'image/png' }));
         updateProcessedImage(imageUrl);
         
-        // Clear the drawing history since drawings are now part of the base image
-        clearDrawing();
+        // Calculate scale and offset for the drawings
+        const oldPaddingPercent = settings.paddingSize / 200; // Split across both sides
+        const newPaddingPercent = paddingSize / 200; // Split across both sides
+        
+        // Calculate padding in pixels (only one side)
+        const oldPaddingPixels = Math.round(oldPaddingPercent * originalDimensions.width);
+        const newPaddingPixels = Math.round(newPaddingPercent * originalDimensions.width);
+        
+        // Update drawing coordinates in the store
+        updateDrawingCoordinates((point: { x: number; y: number }) => {
+          // First convert to relative coordinates (0-1) by removing old padding and scaling
+          const relativeX = (point.x - oldPaddingPixels) / (originalDimensions.width * (1 - 2 * oldPaddingPercent));
+          const relativeY = (point.y - oldPaddingPixels) / (originalDimensions.height * (1 - 2 * oldPaddingPercent));
+          
+          // Now convert back to absolute coordinates with new padding
+          const newWidth = originalDimensions.width * (1 - 2 * newPaddingPercent);
+          const newHeight = originalDimensions.height * (1 - 2 * newPaddingPercent);
+          
+          return {
+            x: relativeX * newWidth + newPaddingPixels,
+            y: relativeY * newHeight + newPaddingPixels
+          };
+        });
       } catch (error) {
         console.error('Error updating padding:', error);
         setError(error instanceof Error ? error.message : 'Failed to update padding');
       }
     }, 100),
-    [currentImage, originalProcessedImage, settings, updateProcessedImage, canvasRef, clearDrawing]
+    [currentImage, originalProcessedImage, settings, updateProcessedImage, updateDrawingCoordinates, originalDimensions]
   );
 
   const handleSliderChange = useCallback((name: keyof typeof settings) => (_: Event, value: number | number[]) => {
@@ -381,40 +383,20 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
 
   const handlePaddingToggle = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const newPaddingEnabled = !settings.paddingEnabled;
-    
-    if (!currentImage) return;
-    
+    if (!currentImage || !originalDimensions) return;
+
     setIsProcessing(true);
-    
+    setError(null);
+
     try {
-      if (newPaddingEnabled) {
-        // When enabling padding, start with 25% padding and apply immediately
-        const initialPaddingSize = 25;
+      if (!settings.paddingEnabled) {
+        // When enabling padding, we need to get the current state and add padding
+        const initialPaddingSize = 32; // Default padding size when enabling
         
-        let sourceBlob: Blob;
-        
-        // If we have drawings, use the merged canvas
-        if (canvasRef?.current) {
-          const mergedCanvas = canvasRef.current.getMergedCanvas();
-          if (mergedCanvas) {
-            sourceBlob = await new Promise<Blob>((resolve) => {
-              mergedCanvas.toBlob((blob) => {
-                if (blob) resolve(blob);
-              }, 'image/png');
-            });
-          } else {
-            // Fallback to original image if merge fails
-            sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
-              await fetch(originalProcessedImage).then(r => r.blob()) : 
-              currentImage.slice();
-          }
-        } else {
-          // No canvas ref, use original image
-          sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
-            await fetch(originalProcessedImage).then(r => r.blob()) : 
-            currentImage.slice();
-        }
+        // Always use the original image or background-removed image as source
+        let sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
+          await fetch(originalProcessedImage).then(r => r.blob()) : 
+          currentImage.slice();
 
         const result = await imageApi.fitImage(sourceBlob, {
           paddingEnabled: true,
@@ -425,7 +407,7 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
         });
         const imageUrl = URL.createObjectURL(new Blob([result], { type: 'image/png' }));
         
-        // Update all the states after successful processing
+        // Update settings
         updateSettings({ 
           paddingEnabled: true,
           paddingSize: initialPaddingSize 
@@ -437,33 +419,34 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
         }));
         updateProcessedImage(imageUrl);
         
-        // Clear the drawing history since drawings are now part of the base image
-        clearDrawing();
+        // Calculate scale and padding for the drawings
+        const paddingPercent = initialPaddingSize / 200; // Split across both sides
+        const paddingPixels = Math.round(paddingPercent * originalDimensions.width);
+        
+        // Update drawing coordinates in the store
+        updateDrawingCoordinates((point: { x: number; y: number }) => {
+          // Convert to relative coordinates (0-1)
+          const relativeX = point.x / originalDimensions.width;
+          const relativeY = point.y / originalDimensions.height;
+          
+          // Calculate new dimensions with padding
+          const newWidth = originalDimensions.width * (1 - 2 * paddingPercent);
+          const newHeight = originalDimensions.height * (1 - 2 * paddingPercent);
+          
+          return {
+            x: relativeX * newWidth + paddingPixels,
+            y: relativeY * newHeight + paddingPixels
+          };
+        });
       } else {
         // When disabling padding, we need to get the current state without padding
-        let sourceBlob: Blob;
-        
-        // If we have drawings, use the merged canvas
-        if (canvasRef?.current) {
-          const mergedCanvas = canvasRef.current.getMergedCanvas();
-          if (mergedCanvas) {
-            sourceBlob = await new Promise<Blob>((resolve) => {
-              mergedCanvas.toBlob((blob) => {
-                if (blob) resolve(blob);
-              }, 'image/png');
-            });
-          } else {
-            // Fallback to original image if merge fails
-            sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
-              await fetch(originalProcessedImage).then(r => r.blob()) : 
-              currentImage.slice();
-          }
-        } else {
-          // No canvas ref, use original image
-          sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
-            await fetch(originalProcessedImage).then(r => r.blob()) : 
-            currentImage.slice();
-        }
+        let sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
+          await fetch(originalProcessedImage).then(r => r.blob()) : 
+          currentImage.slice();
+
+        // When disabling padding, calculate current scale and padding
+        const paddingPercent = settings.paddingSize / 200; // Split across both sides
+        const paddingPixels = Math.round(paddingPercent * originalDimensions.width);
 
         // Apply fitImage with padding disabled to remove the padding
         const result = await imageApi.fitImage(sourceBlob, {
@@ -487,8 +470,18 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
         }));
         updateProcessedImage(imageUrl);
         
-        // Clear the drawing history since drawings are now part of the base image
-        clearDrawing();
+        // Update drawing coordinates in the store
+        updateDrawingCoordinates((point: { x: number; y: number }) => {
+          // Convert to relative coordinates (0-1) by removing padding and scaling up
+          const relativeX = (point.x - paddingPixels) / (originalDimensions.width * (1 - 2 * paddingPercent));
+          const relativeY = (point.y - paddingPixels) / (originalDimensions.height * (1 - 2 * paddingPercent));
+          
+          // Convert back to absolute coordinates without padding
+          return {
+            x: relativeX * originalDimensions.width,
+            y: relativeY * originalDimensions.height
+          };
+        });
       }
     } catch (error) {
       console.error('Error toggling padding:', error);
@@ -498,17 +491,17 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
     }
   }, [
     settings.paddingEnabled,
+    settings.paddingSize,
     settings.backgroundRemoved,
     settings.targetWidth,
     settings.targetHeight,
     settings.maintainAspectRatio,
     currentImage,
+    originalDimensions,
     originalProcessedImage,
     updateSettings,
     updateProcessedImage,
-    canvasRef,
-    clearDrawing,
-    imageApi
+    updateDrawingCoordinates
   ]);
 
   const handleAspectRatioToggle = useCallback(() => {
