@@ -58,7 +58,7 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
   const processedImage = useEditorStore(state => state.processedImage);
   const originalDimensions = useEditorStore(state => state.originalDimensions);
   const shouldProcess = useEditorStore(state => state.shouldProcess);
-  const { updateSettings, addToHistory, resetSettings, triggerBackgroundRemoval, updateProcessedImage, resetProcessingState } = useEditorStore(state => state.actions);
+  const { updateSettings, addToHistory, resetSettings, triggerBackgroundRemoval, updateProcessedImage, resetProcessingState, clearDrawing } = useEditorStore(state => state.actions);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,12 +103,31 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
       if (!currentImage) return;
       
       try {
-        // Always use the original image (either current image or background-removed image)
-        const imageBlob = settings.backgroundRemoved && originalProcessedImage ? 
-          await fetch(originalProcessedImage).then(r => r.blob()) : 
-          currentImage.slice();
+        let sourceBlob: Blob;
+        
+        // If we have drawings, use the merged canvas
+        if (canvasRef?.current) {
+          const mergedCanvas = canvasRef.current.getMergedCanvas();
+          if (mergedCanvas) {
+            sourceBlob = await new Promise<Blob>((resolve) => {
+              mergedCanvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+              }, 'image/png');
+            });
+          } else {
+            // Fallback to original image if merge fails
+            sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
+              await fetch(originalProcessedImage).then(r => r.blob()) : 
+              currentImage.slice();
+          }
+        } else {
+          // No canvas ref, use original image
+          sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
+            await fetch(originalProcessedImage).then(r => r.blob()) : 
+            currentImage.slice();
+        }
 
-        const result = await imageApi.fitImage(imageBlob, {
+        const result = await imageApi.fitImage(sourceBlob, {
           paddingEnabled: settings.paddingEnabled,
           paddingSize: paddingSize,
           targetWidth: settings.targetWidth,
@@ -117,12 +136,15 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
         });
         const imageUrl = URL.createObjectURL(new Blob([result], { type: 'image/png' }));
         updateProcessedImage(imageUrl);
+        
+        // Clear the drawing history since drawings are now part of the base image
+        clearDrawing();
       } catch (error) {
         console.error('Error updating padding:', error);
         setError(error instanceof Error ? error.message : 'Failed to update padding');
       }
     }, 100),
-    [currentImage, originalProcessedImage, settings, updateProcessedImage]
+    [currentImage, originalProcessedImage, settings, updateProcessedImage, canvasRef, clearDrawing]
   );
 
   const handleSliderChange = useCallback((name: keyof typeof settings) => (_: Event, value: number | number[]) => {
@@ -363,19 +385,38 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
     
     if (!currentImage) return;
     
-    // Apply or remove padding based on the new state
-    if (newPaddingEnabled) {
-      // When enabling padding, start with 25% padding and apply immediately
-      const initialPaddingSize = 25;
-      setIsProcessing(true);
-      
-      try {
-        // Always use the original image (either current image or background-removed image)
-        const imageBlob = settings.backgroundRemoved && originalProcessedImage ? 
-          await fetch(originalProcessedImage).then(r => r.blob()) : 
-          currentImage.slice();
+    setIsProcessing(true);
+    
+    try {
+      if (newPaddingEnabled) {
+        // When enabling padding, start with 25% padding and apply immediately
+        const initialPaddingSize = 25;
+        
+        let sourceBlob: Blob;
+        
+        // If we have drawings, use the merged canvas
+        if (canvasRef?.current) {
+          const mergedCanvas = canvasRef.current.getMergedCanvas();
+          if (mergedCanvas) {
+            sourceBlob = await new Promise<Blob>((resolve) => {
+              mergedCanvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+              }, 'image/png');
+            });
+          } else {
+            // Fallback to original image if merge fails
+            sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
+              await fetch(originalProcessedImage).then(r => r.blob()) : 
+              currentImage.slice();
+          }
+        } else {
+          // No canvas ref, use original image
+          sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
+            await fetch(originalProcessedImage).then(r => r.blob()) : 
+            currentImage.slice();
+        }
 
-        const result = await imageApi.fitImage(imageBlob, {
+        const result = await imageApi.fitImage(sourceBlob, {
           paddingEnabled: true,
           paddingSize: initialPaddingSize,
           targetWidth: settings.targetWidth,
@@ -395,20 +436,65 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
           paddingSize: initialPaddingSize 
         }));
         updateProcessedImage(imageUrl);
-      } catch (error) {
-        console.error('Error applying padding:', error);
-        setError(error instanceof Error ? error.message : 'Failed to apply padding');
-      } finally {
-        setIsProcessing(false);
+        
+        // Clear the drawing history since drawings are now part of the base image
+        clearDrawing();
+      } else {
+        // When disabling padding, we need to get the current state without padding
+        let sourceBlob: Blob;
+        
+        // If we have drawings, use the merged canvas
+        if (canvasRef?.current) {
+          const mergedCanvas = canvasRef.current.getMergedCanvas();
+          if (mergedCanvas) {
+            sourceBlob = await new Promise<Blob>((resolve) => {
+              mergedCanvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+              }, 'image/png');
+            });
+          } else {
+            // Fallback to original image if merge fails
+            sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
+              await fetch(originalProcessedImage).then(r => r.blob()) : 
+              currentImage.slice();
+          }
+        } else {
+          // No canvas ref, use original image
+          sourceBlob = settings.backgroundRemoved && originalProcessedImage ? 
+            await fetch(originalProcessedImage).then(r => r.blob()) : 
+            currentImage.slice();
+        }
+
+        // Apply fitImage with padding disabled to remove the padding
+        const result = await imageApi.fitImage(sourceBlob, {
+          paddingEnabled: false,
+          paddingSize: 0,
+          targetWidth: settings.targetWidth,
+          targetHeight: settings.targetHeight,
+          maintainAspectRatio: settings.maintainAspectRatio
+        });
+        const imageUrl = URL.createObjectURL(new Blob([result], { type: 'image/png' }));
+        
+        // Update settings and image
+        updateSettings({ 
+          paddingEnabled: false,
+          paddingSize: 0 
+        });
+        setLocalSettings(prev => ({ 
+          ...prev, 
+          paddingEnabled: false,
+          paddingSize: 0 
+        }));
+        updateProcessedImage(imageUrl);
+        
+        // Clear the drawing history since drawings are now part of the base image
+        clearDrawing();
       }
-    } else {
-      // If disabling padding, restore the original image
-      updateSettings({ paddingEnabled: false, paddingSize: 0 });
-      setLocalSettings(prev => ({ ...prev, paddingEnabled: false, paddingSize: 0 }));
-      const imageUrl = settings.backgroundRemoved && originalProcessedImage ? 
-        originalProcessedImage : 
-        URL.createObjectURL(currentImage);
-      updateProcessedImage(imageUrl);
+    } catch (error) {
+      console.error('Error toggling padding:', error);
+      setError(error instanceof Error ? error.message : 'Failed to toggle padding');
+    } finally {
+      setIsProcessing(false);
     }
   }, [
     settings.paddingEnabled,
@@ -419,7 +505,10 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
     currentImage,
     originalProcessedImage,
     updateSettings,
-    updateProcessedImage
+    updateProcessedImage,
+    canvasRef,
+    clearDrawing,
+    imageApi
   ]);
 
   const handleAspectRatioToggle = useCallback(() => {
@@ -674,11 +763,9 @@ export function ProcessingControls({ canvasRef }: ProcessingControlsProps) {
               >
                 <BorderAllIcon />
               </IconButton>
-              {!settings.paddingEnabled && (
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Click icon to enable padding
-                </Typography>
-              )}
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {settings.paddingEnabled ? "Click icon to disable padding" : "Click icon to enable padding"}
+              </Typography>
             </Stack>
           }
         />

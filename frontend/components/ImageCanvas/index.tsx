@@ -200,7 +200,7 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
       // Redraw all actions from history
       penTool.history.forEach(action => {
         ctx.strokeStyle = action.color;
-        ctx.lineWidth = action.size * scale;
+        ctx.lineWidth = action.size;
         ctx.globalAlpha = action.opacity;
 
         ctx.beginPath();
@@ -216,7 +216,7 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
 
       // Set current styles
       ctx.strokeStyle = penTool.color;
-      ctx.lineWidth = penTool.size * scale;
+      ctx.lineWidth = penTool.size;
       ctx.globalAlpha = penTool.opacity;
     }, [penTool.color, penTool.size, penTool.opacity, scale, penTool.history]);
 
@@ -233,16 +233,17 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
 
       // Set color based on which mouse button is being used
       ctx.strokeStyle = e.button === 2 ? penTool.secondaryColor : penTool.color;
+      ctx.lineWidth = penTool.size;
       
       ctx.beginPath();
       ctx.moveTo(startPoint.x, startPoint.y);
       ctx.lineTo(x, y);
       ctx.stroke();
 
-      // Update current path with the canvas-space coordinates
+      // Store the actual canvas coordinates
       penTool.currentPath.push({ x, y });
       setStartPoint({ x, y });
-    }, [isDrawing, penTool.isActive, scale, startPoint, penTool.currentPath, penTool.color, penTool.secondaryColor]);
+    }, [isDrawing, penTool.isActive, scale, startPoint, penTool.currentPath, penTool.color, penTool.secondaryColor, penTool.size]);
 
     // Handle mouse events
     const handleMouseDown = useCallback((e: MouseEvent) => {
@@ -312,38 +313,28 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
       if (!containerRef.current || !contentRef.current) return;
 
       const container = containerRef.current;
-      const content = contentRef.current;
       const containerRect = container.getBoundingClientRect();
-      const contentRect = content.getBoundingClientRect();
 
       // Get the cursor position relative to the container
       const mouseX = e.clientX - containerRect.left;
       const mouseY = e.clientY - containerRect.top;
 
-      // Calculate the cursor position relative to the content's center
-      const contentCenterX = contentRect.left + contentRect.width / 2 - containerRect.left;
-      const contentCenterY = contentRect.top + contentRect.height / 2 - containerRect.top;
-      
-      // Get the cursor offset from content center in screen space
-      const offsetX = mouseX - contentCenterX;
-      const offsetY = mouseY - contentCenterY;
+      // Calculate the cursor position relative to the content's center (origin)
+      const contentCenterX = containerRect.width / 2;
+      const contentCenterY = containerRect.height / 2;
 
-      // Convert the offset to content space (before scale)
-      const contentOffsetX = offsetX / scale;
-      const contentOffsetY = offsetY / scale;
+      // Get the cursor position relative to the content center, accounting for current transform
+      const contentX = (mouseX - contentCenterX - translate.x) / scale;
+      const contentY = (mouseY - contentCenterY - translate.y) / scale;
 
       // Calculate new scale
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
       const newScale = Math.max(0.1, Math.min(5, scale * delta));
 
-      // Calculate how the content offset will change with the new scale
-      const newOffsetX = contentOffsetX * newScale;
-      const newOffsetY = contentOffsetY * newScale;
-
-      // Calculate the required translation to keep the point under cursor
+      // Calculate new translation to keep the point under cursor
       const newTranslate = {
-        x: translate.x + (offsetX - newOffsetX),
-        y: translate.y + (offsetY - newOffsetY)
+        x: mouseX - (contentX * newScale + contentCenterX),
+        y: mouseY - (contentY * newScale + contentCenterY)
       };
 
       updateCanvasState({
@@ -392,7 +383,12 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
           <DrawingCanvas
             ref={canvasRef}
             style={{
-              pointerEvents: penTool.isActive ? 'auto' : 'none'
+              pointerEvents: penTool.isActive ? 'auto' : 'none',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%'
             }}
           />
         </CanvasContent>
