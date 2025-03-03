@@ -52,6 +52,14 @@ export default function GeneratePage() {
   const [maximizedImage, setMaximizedImage] = useState<number | null>(null);
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-focus the prompt textarea when the page mounts
+  useEffect(() => {
+    if (promptTextareaRef.current) {
+      promptTextareaRef.current.focus();
+    }
+  }, []);
 
   // Auto-focus the modal when it opens
   useEffect(() => {
@@ -278,6 +286,7 @@ export default function GeneratePage() {
                   actions.generateImages();
                 }
               }}
+              inputRef={promptTextareaRef}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   '& fieldset': {
