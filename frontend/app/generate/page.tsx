@@ -165,7 +165,7 @@ export default function GeneratePage() {
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="xl" className="py-6" sx={{ bgcolor: 'background.default' }}>
         <AppBar position="static" color="transparent" elevation={0} sx={{ mb: 3, bgcolor: 'background.default' }}>
-          <Toolbar sx={{ px: { xs: 1, sm: 2 } }}>
+          <Toolbar sx={{ px: { xs: 1, sm: 2 }, display: 'flex', alignItems: 'center' }}>
             <Link href="/" passHref>
               <Button 
                 startIcon={<ImageIcon />} 
@@ -174,16 +174,22 @@ export default function GeneratePage() {
                 Image Studio
               </Button>
             </Link>
-            <div className="flex-grow"></div>
-            <Tooltip title="Settings">
-              <IconButton 
-                color="primary"
-                onClick={() => setAdvancedSettingsOpen(!advancedSettingsOpen)}
-                sx={{ mr: 2 }}
-              >
-                <TuneIcon />
-              </IconButton>
-            </Tooltip>
+            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+              <Typography variant="h6" component="h1" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                AI Generate
+              </Typography>
+            </Box>
+            <Box sx={{ width: '100px', display: 'flex', justifyContent: 'flex-end' }}>
+              <Tooltip title="Settings">
+                <IconButton 
+                  color="primary"
+                  onClick={() => setAdvancedSettingsOpen(!advancedSettingsOpen)}
+                  sx={{ mr: 0 }}
+                >
+                  <TuneIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Toolbar>
         </AppBar>
 

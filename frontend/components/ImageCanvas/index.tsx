@@ -78,6 +78,7 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
     const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
     const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
     const [initialScale, setInitialScale] = useState(1);
+    const activeButtonRef = useRef<number>(0); // Store which mouse button is being used
     
     const { scale, translate, penTool } = useEditorStore(state => state.canvasState);
     const { updateCanvasState, addDrawingAction, undoDrawing, redoDrawing } = useEditorStore(state => state.actions);
@@ -231,8 +232,8 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
       const x = (e.clientX - rect.left) / scale;
       const y = (e.clientY - rect.top) / scale;
 
-      // Set color based on which mouse button is being used
-      ctx.strokeStyle = e.button === 2 ? penTool.secondaryColor : penTool.color;
+      // Use the stored button state instead of the current event's button
+      ctx.strokeStyle = activeButtonRef.current === 2 ? penTool.secondaryColor : penTool.color;
       ctx.lineWidth = penTool.size;
       
       ctx.beginPath();
@@ -267,6 +268,7 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
         
         setIsDrawing(true);
         setStartPoint({ x, y });
+        activeButtonRef.current = e.button; // Store which button initiated the drawing
         penTool.currentPath = [{ x, y }];
       } else if (e.button === 0) { // Left click for panning when pen tool is inactive
         setIsPanning(true);
@@ -286,11 +288,11 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
 
     const handleMouseUp = useCallback((e: MouseEvent) => {
       if (isDrawing && penTool.currentPath.length > 1) {
-        // Add the drawing action to history
+        // Add the drawing action to history using the stored button state
         const action: DrawingAction = {
           type: 'draw',
           points: [...penTool.currentPath],
-          color: e.button === 2 ? penTool.secondaryColor : penTool.color,
+          color: activeButtonRef.current === 2 ? penTool.secondaryColor : penTool.color,
           size: penTool.size,
           opacity: penTool.opacity
         };
@@ -298,6 +300,7 @@ export const ImageCanvas = React.forwardRef<ImageCanvasRef, ImageCanvasProps>(
       }
       setIsPanning(false);
       setIsDrawing(false);
+      activeButtonRef.current = 0; // Reset the stored button state
     }, [isDrawing, penTool, addDrawingAction]);
 
     // Prevent context menu on right-click when pen tool is active
