@@ -19,7 +19,8 @@ export function ImageDropzone() {
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.webp']
     },
-    multiple: false
+    multiple: false,
+    noClick: true
   });
 
   return (
@@ -27,7 +28,7 @@ export function ImageDropzone() {
       {...getRootProps()}
       className={`
         w-full h-full
-        flex items-center justify-center cursor-pointer
+        flex items-center justify-center
         ${isDragActive ? 'bg-blue-50' : ''}
       `}
     >

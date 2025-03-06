@@ -5,7 +5,6 @@ import { ImageDropzone } from '@/components/ImageDropzone';
 import { ProcessingControls } from '@/components/ProcessingControls';
 import { Typography, IconButton, Tooltip, Button, AppBar, Toolbar, Box, Slider, Stack, TextField, Popover, Container } from '@mui/material';
 import { useCallback, useState, useRef } from 'react';
-import { useDropzone } from 'react-dropzone';
 import { BackgroundToggle, BackgroundToggleButton } from '@/components/BackgroundToggle';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import BrushIcon from '@mui/icons-material/Brush';
@@ -44,22 +43,6 @@ export default function EditorPage() {
     setBackground(sequence[(currentIndex + 1) % sequence.length]);
   }, [background]);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (file) {
-      setCurrentImage(file);
-    }
-  }, [setCurrentImage]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.webp']
-    },
-    multiple: false,
-    noClick: true
-  });
-
   // Handle save with drawings
   const handleSave = useCallback(() => {
     if (!canvasRef.current) return;
@@ -95,8 +78,7 @@ export default function EditorPage() {
   };
 
   return (
-    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }} {...getRootProps()}>
-      <input {...getInputProps()} />
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="xl" className="py-6" sx={{ bgcolor: 'background.default', height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column' }}>
         <AppBar position="static" color="transparent" elevation={0} sx={{ mb: 3, bgcolor: 'background.default' }}>
           <Toolbar sx={{ px: { xs: 1, sm: 2 }, display: 'flex', alignItems: 'center' }}>
@@ -353,16 +335,6 @@ export default function EditorPage() {
             </div>
           </div>
         </div>
-
-        {isDragActive && (
-          <div className="fixed inset-0 bg-blue-500/20 pointer-events-none flex items-center justify-center">
-            <div className="bg-white rounded-lg shadow-lg p-8">
-              <Typography variant="h5">
-                Drop image here...
-              </Typography>
-            </div>
-          </div>
-        )}
       </Container>
     </Box>
   );
